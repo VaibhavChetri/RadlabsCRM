@@ -283,3 +283,79 @@ td .input-row button { margin-top: 0; }
 .badge.priority-hot { background: #fef2f2; color: var(--danger); }
 .badge.priority-warm { background: #fff7ed; color: #c2410c; }
 .badge.priority-cold { background: #eff6ff; color: #1d4ed8; }
+
+/* ----- All leads: filters, sort, bulk bar, pager ----- */
+.filters {
+  display: grid;
+  grid-template-columns: 2fr repeat(6, minmax(110px, 1fr));
+  gap: 0 12px;
+}
+@media (max-width: 1000px) { .filters { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+.filters label { margin-bottom: 4px; }
+.filters input, .filters select { padding: 8px 10px; font-size: 13px; }
+
+button.link-btn {
+  width: auto;
+  padding: 4px 0;
+  background: none;
+  color: var(--primary);
+  font-size: 13px;
+}
+button.link-btn:hover { background: none; text-decoration: underline; }
+
+.sort-btn {
+  width: auto;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  text-transform: inherit;
+  white-space: nowrap;
+}
+.sort-btn:hover { background: none; color: var(--text); }
+.sort-btn.active { color: var(--primary); }
+
+input[type="checkbox"] { display: inline-block; width: 16px; height: 16px; margin: 0; cursor: pointer; }
+.check-col { width: 36px; padding-right: 0; }
+.row-selected td { background: #eef2ff; }
+
+.bulk-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  background: var(--text);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.bulk-bar select.compact { min-width: 130px; }
+.bulk-bar button.danger { margin-top: 0; }
+.bulk-bar button.link-btn { color: #c7d2fe; }
+
+.notice {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.table-wrap.is-loading { opacity: 0.55; transition: opacity .15s; }
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+.pager button { margin-top: 0; }

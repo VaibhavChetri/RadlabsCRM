@@ -8,7 +8,7 @@ Internal integer ids never appear here; only public uuids.
 from datetime import date, datetime, timezone
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, PlainSerializer, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer, field_validator, model_validator
 
 from models import PRIORITIES, SOURCES, Lead
 
@@ -161,6 +161,29 @@ class LeadOut(BaseModel):
 class LeadList(BaseModel):
     items: list[LeadOut]
     total: int
+
+
+class BulkChanges(BaseModel):
+    """What a bulk update may set. Only the fields that are sent are changed."""
+    status: Optional[str] = None
+    owner_uuid: Optional[str] = None  # null = Unassigned
+    priority: Optional[Priority] = None
+
+
+class BulkRequest(BaseModel):
+    uuids: list[str] = Field(min_length=1, max_length=5000)
+    action: Literal["update", "delete"]
+    changes: Optional[BulkChanges] = None  # needed for "update"
+
+    @model_validator(mode="after")
+    def _update_needs_a_change(self):
+        if self.action == "update" and not (self.changes and self.changes.model_fields_set):
+            raise ValueError("Choose a status, owner or priority to set")
+        return self
+
+
+class BulkResult(BaseModel):
+    count: int  # leads changed or deleted
 
 
 class TodayList(BaseModel):

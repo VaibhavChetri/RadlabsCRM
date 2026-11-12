@@ -131,8 +131,19 @@ def add_note(db: Session, lead: Lead, body: str, user: User) -> LeadNote:
     return note
 
 
+def bulk_update(db: Session, leads: list[Lead], changes: dict, user: User) -> None:
+    """Same change on many leads, one by one, so each lead gets its own history."""
+    for lead in leads:
+        update_lead(db, lead, changes, user)
+
+
 def delete_lead(db: Session, lead: Lead) -> None:
     """Delete a junk lead. Its calls, status history and notes go with it (FK cascade)."""
     db.delete(lead)
     db.flush()
+
+
+def bulk_delete(db: Session, leads: list[Lead]) -> None:
+    for lead in leads:
+        delete_lead(db, lead)
 

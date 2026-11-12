@@ -12,14 +12,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import { errorMessage, formatDate, formatDateTime, fullName, localDateISO } from '../format';
+import {
+  PRIORITY_LABELS, errorMessage, formatDate, formatDateTime, fullName, localDateISO,
+} from '../format';
 
 const SECTIONS = [
   ['overdue', 'Overdue follow-ups', 'Nothing overdue. Good work.'],
   ['due_today', 'Follow-ups due today', 'No follow-ups due today.'],
   ['new', 'New leads', 'No new leads assigned to you.'],
 ];
-const PRIORITY_LABELS = { hot: 'Hot', warm: 'Warm', cold: 'Cold' };
 
 function CallRow({ lead, statuses, overdue, busy, onCall, onStatus }) {
   return (

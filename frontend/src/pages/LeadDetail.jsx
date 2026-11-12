@@ -15,11 +15,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import {
-  DO_NOT_CALL, errorMessage, externalUrl, formatDateTime, fullName, whatsappUrl,
+  DO_NOT_CALL, PRIORITIES, SOURCES, errorMessage, externalUrl, formatDateTime, fullName,
+  whatsappUrl,
 } from '../format';
-
-const SOURCES = ['Apollo', 'LinkedIn', 'Referral', 'Event', 'Cold list', 'Other'];
-const PRIORITIES = [['hot', 'Hot'], ['warm', 'Warm'], ['cold', 'Cold']];
 
 // [field, label, input type] in the order they are shown.
 const PERSON_FIELDS = [

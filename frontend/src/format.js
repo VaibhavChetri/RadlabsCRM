@@ -56,3 +56,14 @@ export function whatsappUrl(phone) {
 }
 
 export const DO_NOT_CALL = 'Do not call';
+
+// Fixed lists, same as the backend (models.py).
+export const SOURCES = ['Apollo', 'LinkedIn', 'Referral', 'Event', 'Cold list', 'Other'];
+export const PRIORITIES = [['hot', 'Hot'], ['warm', 'Warm'], ['cold', 'Cold']];
+export const PRIORITY_LABELS = Object.fromEntries(PRIORITIES);
+
+// The browser's local time minus UTC, in minutes (IST = 330). The API uses it
+// to read date filters as local dates and to write local times in exports.
+export function tzOffsetMinutes(now = new Date()) {
+  return -now.getTimezoneOffset();
+}

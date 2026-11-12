@@ -106,12 +106,12 @@ The full leads table. Search across name, company, email and phone. Filters: sta
 
 ### Acceptance criteria
 
-- [ ] Search and every filter narrow the results correctly; they can be combined.
-- [ ] Sorting and paging work with thousands of seeded leads, without noticeable delay.
-- [ ] Bulk status change writes one history row per lead.
-- [ ] Bulk delete needs a confirmation.
-- [ ] Export gives a valid .xlsx matching the current filter.
-- [ ] API tests: filters, sort, paging, bulk update, export.
+- [x] Search and every filter narrow the results correctly; they can be combined.
+- [x] Sorting and paging work with thousands of seeded leads, without noticeable delay.
+- [x] Bulk status change writes one history row per lead.
+- [x] Bulk delete needs a confirmation.
+- [x] Export gives a valid .xlsx matching the current filter.
+- [x] API tests: filters, sort, paging, bulk update, export.
 
 ---
 
