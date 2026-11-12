@@ -1,0 +1,18 @@
+# ---- Web framework + server ----
+fastapi
+uvicorn[standard]
+
+# ---- Database (MySQL) ----
+sqlalchemy
+pymysql
+
+# ---- Auth: JWT tokens + password hashing ----
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1          # pinned: passlib breaks with bcrypt >= 4.1 (known issue)
+
+# ---- Misc ----
+email-validator        # makes Pydantic's EmailStr work (validates emails)
+python-multipart       # lets FastAPI read form data
+python-dotenv          # loads the .env file
+openpyxl               # Excel export (used in Step 5)

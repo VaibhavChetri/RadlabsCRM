@@ -1,0 +1,128 @@
+{
+  "info": {
+    "name": "Lead Management System",
+    "description": "Ready-made requests for the Lead Management backend. Import this into Postman and just click Send. Make sure the backend is running at http://127.0.0.1:8000 first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "token", "value": "" },
+    { "key": "clientId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Health check (GET /)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+      }
+    },
+    {
+      "name": "1. Create client (POST /clients/create)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Save the new client's UUID into {{clientId}} so the Submit Lead",
+              "// request can use it. The response now returns 'uuid', never the pk.",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set('clientId', pm.response.json().uuid);",
+              "    console.log('Saved clientId (uuid):', pm.response.json().uuid);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo Co\",\n  \"email\": \"demo@example.com\",\n  \"password\": \"demo123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/clients/create", "host": ["{{baseUrl}}"], "path": ["clients", "create"] }
+      }
+    },
+    {
+      "name": "2. Login (POST /auth/login)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Automatically save the returned token into the {{token}} variable,",
+              "// so the protected requests (Step 4+) can use it.",
+              "if (pm.response.code === 200) {",
+              "    const data = pm.response.json();",
+              "    pm.collectionVariables.set('token', data.access_token);",
+              "    console.log('Saved token:', data.access_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"test@client.com\",\n  \"password\": \"test123\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+      }
+    },
+    {
+      "name": "3. Submit lead (POST /leads/submit) — PUBLIC",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"{{clientId}}\",\n  \"name\": \"Ravi Kumar\",\n  \"email\": \"ravi@example.com\",\n  \"phone\": \"9876543210\",\n  \"message\": \"I am interested in a 2BHK flat in Guwahati.\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/leads/submit", "host": ["{{baseUrl}}"], "path": ["leads", "submit"] }
+      }
+    },
+    {
+      "name": "4. Get my leads (GET /leads/) — PROTECTED",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "url": { "raw": "{{baseUrl}}/leads/", "host": ["{{baseUrl}}"], "path": ["leads", ""] }
+      }
+    },
+    {
+      "name": "5. Export leads to Excel (GET /leads/export) — PROTECTED",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "url": { "raw": "{{baseUrl}}/leads/export", "host": ["{{baseUrl}}"], "path": ["leads", "export"] }
+      }
+    },
+    {
+      "name": "6. Update lead status (PATCH /leads/1/status) — PROTECTED",
+      "request": {
+        "method": "PATCH",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"contacted\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/leads/1/status", "host": ["{{baseUrl}}"], "path": ["leads", "1", "status"] }
+      }
+    }
+  ]
+}
