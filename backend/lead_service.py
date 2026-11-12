@@ -17,13 +17,19 @@ class LeadError(ValueError):
     """A change that breaks a lead rule (unknown status, inactive owner, ...)."""
 
 
-def create_lead(db: Session, fields: dict, user: User) -> Lead:
-    """Create a lead with status New, owned by its creator, and log none -> New."""
+CREATOR = object()  # create_lead's default owner: whoever adds the lead
+
+
+def create_lead(db: Session, fields: dict, user: User, owner: User | None = CREATOR) -> Lead:
+    """Create a lead with status New and log none -> New.
+    Owned by its creator unless `owner` is given (None = Unassigned)."""
     new_status = db.query(Status).filter(Status.name == NEW_STATUS).one()
+    if owner is CREATOR:
+        owner = user
     lead = Lead(
         **fields,
         status_id=new_status.id,
-        owner_id=user.id,
+        owner_id=owner.id if owner else None,
         created_by=user.id,
     )
     db.add(lead)

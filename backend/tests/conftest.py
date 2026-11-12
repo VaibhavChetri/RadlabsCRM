@@ -63,8 +63,18 @@ def _test_database():
     with SessionLocal() as db:
         models.seed_statuses(db)
         db.commit()
+    _seed_presets()
     yield
     engine.dispose()
+
+
+def _seed_presets():
+    from database import SessionLocal
+    import import_engine
+
+    with SessionLocal() as db:
+        import_engine.seed_builtin_presets(db)
+        db.commit()
 
 
 KEEP_TABLES = {"statuses"}
@@ -81,6 +91,7 @@ def _clean_tables():
             if table.name not in KEEP_TABLES:
                 conn.execute(text(f"TRUNCATE TABLE `{table.name}`"))
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+    _seed_presets()  # built-in presets are part of every fresh CRM
 
 
 @pytest.fixture

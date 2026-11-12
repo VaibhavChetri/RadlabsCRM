@@ -359,3 +359,33 @@ input[type="checkbox"] { display: inline-block; width: 16px; height: 16px; margi
   margin-top: 14px;
 }
 .pager button { margin-top: 0; }
+
+/* ----- Import ----- */
+a.button-link {
+  display: inline-block;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+}
+a.button-link.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+a.button-link.secondary:hover { background: #f3f4f6; }
+
+.file-pick {
+  display: inline-block;
+  padding: 11px 18px;
+  margin: 4px 0 14px;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.file-pick:hover { background: var(--primary-hover); }
+.file-pick input { display: none; }
+
+.sample-cell { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.row-skipped td:first-child strong { color: var(--muted); font-weight: 500; }
+.preset-save { margin: 16px 0 10px; }
+.preset-save input { margin-top: 0; }
+.preset-save button { margin-top: 0; }

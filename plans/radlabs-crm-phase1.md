@@ -127,15 +127,15 @@ Import wizard: upload .xlsx/.csv (max 5 MB / 5,000 rows) → pick Source, Preset
 
 ### Acceptance criteria
 
-- [ ] An Apollo CSV export maps with no manual change via the built-in preset.
-- [ ] Re-uploading the same file adds 0 leads and changes no status, owner, notes or call fields.
-- [ ] A file with a new phone for an existing lead fills that phone only if it was empty.
-- [ ] Rows with no contact info are skipped with the reason "no contact info".
-- [ ] "Split evenly" spreads leads round-robin across active users.
-- [ ] A bad row that causes a DB error rolls back the whole import.
-- [ ] Wrong file type or too-large file is refused with a clear message.
-- [ ] A manual add of an existing email returns 409 and the UI links to the existing lead.
-- [ ] Import engine + matcher tests with sample Apollo, messy Excel and CSV files cover all of the above.
+- [x] An Apollo CSV export maps with no manual change via the built-in preset.
+- [x] Re-uploading the same file adds 0 leads and changes no status, owner, notes or call fields.
+- [x] A file with a new phone for an existing lead fills that phone only if it was empty.
+- [x] Rows with no contact info are skipped with the reason "no contact info".
+- [x] "Split evenly" spreads leads round-robin across active users.
+- [x] A bad row that causes a DB error rolls back the whole import.
+- [x] Wrong file type or too-large file is refused with a clear message.
+- [x] A manual add of an existing email returns 409 and the UI links to the existing lead.
+- [x] Import engine + matcher tests with sample Apollo, messy Excel and CSV files cover all of the above.
 
 ---
 

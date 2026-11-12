@@ -3,7 +3,8 @@ routes/leads.py
 ---------------
 All routes need a valid login. Leads are addressed by public uuid only.
 
-POST   /leads          add one lead (manual form)
+POST   /leads          add one lead (manual form). 409 { message, lead_uuid, name } when
+                       the person is already in the CRM (same email, phone or LinkedIn)
 GET    /leads          the All-leads table -> { items, total }
                        ?q= search name, company, email, phone
                        &status= &owner= (uuid | unassigned) &source= &priority=
@@ -32,6 +33,7 @@ from sqlalchemy.orm import Session, joinedload
 import lead_export
 import lead_query
 import lead_service
+from lead_matcher import LeadIndex
 from auth import get_current_user
 from database import get_db
 from models import Lead, LeadNote, User, utc_now
@@ -49,6 +51,15 @@ def create_lead(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    existing_id = LeadIndex.load(db).find(payload.model_dump())
+    if existing_id is not None:
+        existing = db.get(Lead, existing_id)
+        name = " ".join(filter(None, [existing.first_name, existing.last_name]))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={
+            "message": "This lead is already in the CRM",
+            "lead_uuid": existing.uuid,
+            "name": name,
+        })
     lead = lead_service.create_lead(db, payload.model_dump(), user)
     db.commit()
     db.refresh(lead)

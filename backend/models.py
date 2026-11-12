@@ -165,6 +165,8 @@ class Import(Base):
     skipped = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
+    user = relationship("User")
+
 
 def seed_statuses(db) -> None:
     """Insert the 10 pipeline stages if they are not there yet."""

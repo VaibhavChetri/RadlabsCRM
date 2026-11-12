@@ -10,6 +10,7 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, field_validator, model_validator
 
+from import_engine import FIELDS as IMPORT_FIELDS
 from models import PRIORITIES, SOURCES, Lead
 
 
@@ -206,3 +207,68 @@ class NoteOut(BaseModel):
     @classmethod
     def from_note(cls, note) -> "NoteOut":
         return cls(author=note.author.name, body=note.body, created_at=note.created_at)
+
+
+# ---------- Import ----------
+class ImportRowOut(BaseModel):
+    row: int      # row number in the file (the header is row 1)
+    result: Literal["added", "updated", "skipped"]
+    reason: str = ""
+    values: list[str] = []  # the row as it is in the file
+
+
+class ImportReport(BaseModel):
+    added: int
+    updated: int
+    skipped: int
+    headers: list[str]  # the file's columns, in order (for `values`)
+    rows: list[ImportRowOut]
+
+
+class ImportPreview(BaseModel):
+    file_name: str
+    headers: list[str]
+    row_count: int                     # data rows (blank rows not counted)
+    sample_rows: list[list[str]]       # first rows, as in the file
+    mapping: dict[str, Optional[str]]  # file header -> CRM field, None = skip
+    preset: Optional[str] = None       # name of the preset the mapping came from
+    mapped_rows: list[dict[str, str]]  # first rows as they will look in the CRM
+
+
+ImportField = Literal[IMPORT_FIELDS]
+ImportMapping = dict[str, Optional[ImportField]]  # file header -> CRM field, None = skip
+
+
+class PresetIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    mapping: ImportMapping
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _trim(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class PresetOut(BaseModel):
+    name: str
+    mapping: ImportMapping
+    is_builtin: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ImportOut(BaseModel):
+    """One line of the import history."""
+    file_name: str
+    source: str
+    user: str  # who ran it
+    added: int
+    updated: int
+    skipped: int
+    created_at: UTCDateTime
+
+    @classmethod
+    def from_import(cls, record) -> "ImportOut":
+        return cls(file_name=record.file_name, source=record.source, user=record.user.name,
+                   added=record.added, updated=record.updated, skipped=record.skipped,
+                   created_at=record.created_at)

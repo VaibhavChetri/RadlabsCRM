@@ -67,3 +67,22 @@ export const PRIORITY_LABELS = Object.fromEntries(PRIORITIES);
 export function tzOffsetMinutes(now = new Date()) {
   return -now.getTimezoneOffset();
 }
+
+// CRM fields a file column can be imported into (same keys as the backend).
+export const IMPORT_FIELDS = [
+  ['full_name', 'Full name (split into first + last)'],
+  ['first_name', 'First name'],
+  ['last_name', 'Last name'],
+  ['job_title', 'Job title'],
+  ['email', 'Email'],
+  ['phone', 'Phone'],
+  ['phone_2', 'Second phone'],
+  ['linkedin_url', 'LinkedIn URL'],
+  ['company', 'Company'],
+  ['website', 'Website'],
+  ['industry', 'Industry'],
+  ['company_size', 'Company size'],
+  ['city', 'City'],
+  ['country', 'Country'],
+];
+export const IMPORT_FIELD_LABELS = Object.fromEntries(IMPORT_FIELDS);

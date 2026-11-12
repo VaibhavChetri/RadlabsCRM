@@ -73,3 +73,20 @@ def test_list_leads_shows_all_leads_newest_first_with_added_info(client, auth_he
 
 def test_list_leads_without_login_is_rejected(client):
     assert client.get("/leads").status_code == 401
+
+
+def test_adding_a_lead_that_already_exists_returns_409_with_the_existing_lead(client, auth_headers):
+    headers = auth_headers()
+    first = client.post("/leads", json={"first_name": "Ravi", "last_name": "Kumar",
+                                        "email": "ravi@acme.com", "phone": "+91 98765 43210"},
+                        headers=headers).json()
+
+    for duplicate in ({"email": "RAVI@Acme.com"}, {"phone": "98765-43210"}):
+        res = client.post("/leads", json={"first_name": "R", **duplicate}, headers=headers)
+        assert res.status_code == 409, res.text
+        assert res.json()["detail"] == {
+            "message": "This lead is already in the CRM",
+            "lead_uuid": first["uuid"],
+            "name": "Ravi Kumar",
+        }
+    assert len(client.get("/leads", headers=headers).json()["items"]) == 1

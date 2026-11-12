@@ -8,12 +8,14 @@
 //   Bulk       tick leads, then set status / owner / priority, or delete (asks first).
 //              The server changes them all or none, and writes history for each.
 //   Export     the current filtered list (every page) as .xlsx, with notes.
+//   Import     "Import file" opens the import wizard (/import).
 // Filters, sort and page live in the URL, so a view can be shared or reloaded.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import AddLeadForm from '../components/AddLeadForm';
+import { saveDownload } from '../download';
 import {
   DO_NOT_CALL, PRIORITIES, PRIORITY_LABELS, SOURCES, errorMessage, formatDate, formatDateTime,
   fullName, tzOffsetMinutes,
@@ -51,6 +53,7 @@ function SortHeader({ label, sortKey, sort, order, onSort }) {
 
 export default function Leads() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const query = apiQuery(searchParams);
 
   const [data, setData] = useState({ items: [], total: 0 });
@@ -187,14 +190,7 @@ export default function Leads() {
     setError('');
     try {
       const res = await api.get(`/leads/export?${query}`, { responseType: 'blob' });
-      const disposition = res.headers['content-disposition'] || '';
-      const fileName = /filename="([^"]+)"/.exec(disposition)?.[1] || 'radlabs-leads.xlsx';
-      const url = URL.createObjectURL(res.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
+      saveDownload(res, 'radlabs-leads.xlsx');
     } catch {
       setError('Could not export. Please try again.');
     } finally {
@@ -220,13 +216,14 @@ export default function Leads() {
             disabled={exporting || data.total === 0}>
             {exporting ? 'Exporting…' : 'Export to Excel'}
           </button>
+          <Link className="button-link secondary" to="/import">Import file</Link>
           <button type="button" className="inline" onClick={() => setShowAdd((v) => !v)}>
             {showAdd ? 'Close' : '+ Add lead'}
           </button>
         </div>
       </div>
 
-      {showAdd && <AddLeadForm onAdded={reload} />}
+      {showAdd && <AddLeadForm onAdded={reload} onOpenExisting={(uuid) => navigate(`/leads/${uuid}`)} />}
 
       <div className="card">
         <div className="filters">
