@@ -113,6 +113,7 @@ class Lead(Base):
     status = relationship("Status")
     owner = relationship("User", foreign_keys=[owner_id])
     creator = relationship("User", foreign_keys=[created_by])
+    notes_editor = relationship("User", foreign_keys=[notes_updated_by])
 
 
 class Call(Base):

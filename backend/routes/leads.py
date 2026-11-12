@@ -3,18 +3,26 @@ routes/leads.py
 ---------------
 All routes need a valid login. Leads are addressed by public uuid only.
 
-POST /leads   add one lead (manual form)
-GET  /leads   all leads, newest first -> { items, total }
+POST   /leads          add one lead (manual form)
+GET    /leads          all leads, newest first -> { items, total }
+GET    /leads/stamp?tz=     Notes stamp text for me, in my local time
+GET    /leads/{uuid}        one lead with every field
+PATCH  /leads/{uuid}        edit fields, status, owner, follow-up, notes
+DELETE /leads/{uuid}        delete (calls and history go with it)
+POST   /leads/{uuid}/call   +1 Call
 """
 
-from fastapi import APIRouter, Depends, status
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 import lead_service
 from auth import get_current_user
 from database import get_db
 from models import Lead, User
-from schemas import LeadCreate, LeadList, LeadOut
+from schemas import LeadCreate, LeadList, LeadOut, LeadUpdate
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -44,3 +52,74 @@ def list_leads(
         .all()
     )
     return LeadList(items=[LeadOut.from_lead(lead) for lead in leads], total=len(leads))
+
+
+# Fixed paths must be declared before /{lead_uuid}.
+@router.get("/stamp")
+def stamp(
+    tz: str = Query("UTC", description="IANA time zone of the browser, e.g. Asia/Kolkata"),
+    user: User = Depends(get_current_user),
+):
+    try:
+        zone = ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail=f"Unknown time zone: {tz}")
+    return {"text": lead_service.stamp_text(user.name, datetime.now(zone))}
+
+
+def _get_lead_or_404(db: Session, lead_uuid: str) -> Lead:
+    lead = db.query(Lead).filter(Lead.uuid == lead_uuid).first()
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    return lead
+
+
+@router.get("/{lead_uuid}", response_model=LeadOut)
+def get_lead(
+    lead_uuid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return LeadOut.from_lead(_get_lead_or_404(db, lead_uuid))
+
+
+@router.post("/{lead_uuid}/call", response_model=LeadOut)
+def log_call(
+    lead_uuid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = lead_service.log_call(db, _get_lead_or_404(db, lead_uuid), user)
+    db.commit()
+    db.refresh(lead)
+    return LeadOut.from_lead(lead)
+
+
+@router.patch("/{lead_uuid}", response_model=LeadOut)
+def update_lead(
+    lead_uuid: str,
+    payload: LeadUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = _get_lead_or_404(db, lead_uuid)
+    try:
+        lead_service.update_lead(db, lead, payload.model_dump(exclude_unset=True), user)
+    except lead_service.LeadError as err:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err))
+    db.commit()
+    db.refresh(lead)
+    return LeadOut.from_lead(lead)
+
+
+@router.delete("/{lead_uuid}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_lead(
+    lead_uuid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead_service.delete_lead(db, _get_lead_or_404(db, lead_uuid))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

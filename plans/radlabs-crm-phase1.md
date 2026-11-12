@@ -65,14 +65,14 @@ A full lead page. Every field is shown and editable. Phone shows tap-to-call and
 
 ### Acceptance criteria
 
-- [ ] Editing any field saves and is shown after reload; `updated_at` changes.
-- [ ] Status change writes a `status_changes` row with from, to, user and time.
-- [ ] "+1 Call" adds 1 to attempts, sets Last called, and writes one `calls` row.
-- [ ] The follow-up date saves and clears.
-- [ ] Stamp inserts the right text at the top; saving the notes records who edited and when.
-- [ ] Do-not-call leads show a clear warning badge.
-- [ ] Delete needs a confirmation and removes the lead with its calls and history.
-- [ ] Lead service tests: +1 call, status history, notes editor, stamp format.
+- [x] Editing any field saves and is shown after reload; `updated_at` changes.
+- [x] Status change writes a `status_changes` row with from, to, user and time.
+- [x] "+1 Call" adds 1 to attempts, sets Last called, and writes one `calls` row.
+- [x] The follow-up date saves and clears.
+- [x] Stamp inserts the right text at the top; saving the notes records who edited and when.
+- [x] Do-not-call leads show a clear warning badge.
+- [x] Delete needs a confirmation and removes the lead with its calls and history.
+- [x] Lead service tests: +1 call, status history, notes editor, stamp format.
 
 ---
 

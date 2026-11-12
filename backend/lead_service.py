@@ -6,11 +6,17 @@ calls) are always written. Functions add/flush but do NOT commit: the
 caller owns the transaction (an import can then be all-or-nothing).
 """
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
-from models import Lead, Status, StatusChange, User
+from models import Call, Lead, Status, StatusChange, User, utc_now
 
 NEW_STATUS = "New"
+
+
+class LeadError(ValueError):
+    """A change that breaks a lead rule (unknown status, inactive owner, ...)."""
 
 
 def create_lead(db: Session, fields: dict, user: User) -> Lead:
@@ -34,3 +40,113 @@ def create_lead(db: Session, fields: dict, user: User) -> Lead:
     ))
     db.flush()
     return lead
+
+
+def log_call(db: Session, lead: Lead, user: User) -> Lead:
+    """+1 Call: count it, set Last called, and write one calls row."""
+    now = utc_now()
+    lead.call_attempts = (lead.call_attempts or 0) + 1
+    lead.last_called_at = now
+    db.add(Call(lead_id=lead.id, user_id=user.id, called_at=now))
+    db.flush()
+    return lead
+
+
+def change_status(db: Session, lead: Lead, status_name: str, user: User) -> Lead:
+    """Move the lead to another stage and log from -> to. Same stage = no-op."""
+    new_status = db.query(Status).filter(Status.name == status_name).first()
+    if new_status is None:
+        raise LeadError(f"Unknown status: {status_name}")
+    if new_status.id == lead.status_id:
+        return lead
+
+    db.add(StatusChange(
+        lead_id=lead.id,
+        from_status_id=lead.status_id,
+        to_status_id=new_status.id,
+        user_id=user.id,
+        changed_at=utc_now(),
+    ))
+    lead.status_id = new_status.id
+    lead.status = new_status
+    db.flush()
+    return lead
+
+
+# Fields a PATCH copies straight onto the lead.
+PLAIN_FIELDS = (
+    "first_name", "last_name", "job_title", "email", "phone", "phone_2",
+    "linkedin_url", "company", "website", "industry", "company_size", "city",
+    "country", "source", "priority", "next_follow_up",
+)
+NOT_NULL_FIELDS = ("source", "priority")
+
+
+def update_lead(db: Session, lead: Lead, changes: dict, user: User) -> Lead:
+    """Apply a PATCH. Status goes through change_status so history is written."""
+    for field in PLAIN_FIELDS:
+        if field not in changes:
+            continue
+        if changes[field] is None and field in NOT_NULL_FIELDS:
+            raise LeadError(f"{field} cannot be empty")
+        setattr(lead, field, changes[field])
+    _check_name_and_contact(lead)
+
+    if "status" in changes:
+        change_status(db, lead, changes["status"], user)
+    if "owner_uuid" in changes:
+        change_owner(db, lead, changes["owner_uuid"])
+    if "notes" in changes:
+        save_notes(db, lead, changes["notes"], user)
+    db.flush()
+    return lead
+
+
+def change_owner(db: Session, lead: Lead, owner_uuid: str | None) -> Lead:
+    """Hand the lead to an active user, or None for Unassigned."""
+    if owner_uuid is None:
+        lead.owner_id = None
+        lead.owner = None
+    else:
+        owner = db.query(User).filter(User.uuid == owner_uuid, User.is_active.is_(True)).first()
+        if owner is None:
+            raise LeadError("Owner must be an active team member")
+        lead.owner_id = owner.id
+        lead.owner = owner
+    db.flush()
+    return lead
+
+
+def _check_name_and_contact(lead: Lead) -> None:
+    if not (lead.first_name or lead.last_name):
+        raise LeadError("A lead needs a first or last name")
+    if not (lead.email or lead.phone or lead.linkedin_url):
+        raise LeadError("A lead needs an email, phone or LinkedIn URL")
+
+
+def save_notes(db: Session, lead: Lead, notes: str | None, user: User) -> Lead:
+    """Save the Notes box and record who edited it and when. No change = no-op."""
+    notes = notes if notes and notes.strip() else None
+    if notes == lead.notes:
+        return lead
+    lead.notes = notes
+    lead.notes_updated_by = user.id
+    lead.notes_editor = user
+    lead.notes_updated_at = utc_now()
+    db.flush()
+    return lead
+
+
+def delete_lead(db: Session, lead: Lead) -> None:
+    """Delete a junk lead. Its calls and status history go with it (FK cascade)."""
+    db.delete(lead)
+    db.flush()
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def stamp_text(name: str, when: datetime) -> str:
+    """The Notes "Stamp": '[DD Mon HH:MM · Name] '. `when` is the user's local time."""
+    return f"[{when.day:02d} {_MONTHS[when.month - 1]} {when:%H:%M} · {name}] "

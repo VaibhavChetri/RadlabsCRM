@@ -1,24 +1,14 @@
 // Leads.jsx
 // ---------
 // Phase 1 "All leads": a simple Add-lead form and the list of every lead
-// with its "Added to CRM" date and who added it.
+// with its "Added to CRM" date and who added it. A name opens the lead.
 // Search, filters, paging and bulk actions arrive in Phase 4.
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api';
 import AddLeadForm from '../components/AddLeadForm';
-
-function formatDateTime(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  return isNaN(d) ? value : d.toLocaleString(undefined, {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function fullName(lead) {
-  return [lead.first_name, lead.last_name].filter(Boolean).join(' ');
-}
+import { DO_NOT_CALL, formatDateTime, fullName } from '../format';
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
@@ -74,11 +64,15 @@ export default function Leads() {
               <tbody>
                 {leads.map((lead) => (
                   <tr key={lead.uuid}>
-                    <td>{fullName(lead)}</td>
+                    <td><Link to={`/leads/${lead.uuid}`}>{fullName(lead)}</Link></td>
                     <td>{lead.company}</td>
                     <td>{lead.email}</td>
                     <td>{lead.phone}</td>
-                    <td><span className="badge">{lead.status}</span></td>
+                    <td>
+                      <span className={lead.status === DO_NOT_CALL ? 'badge danger' : 'badge'}>
+                        {lead.status}
+                      </span>
+                    </td>
                     <td>{lead.owner || <span className="muted">Unassigned</span>}</td>
                     <td>{formatDateTime(lead.created_at)}</td>
                     <td>{lead.created_by}</td>

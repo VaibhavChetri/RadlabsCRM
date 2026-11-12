@@ -5,17 +5,9 @@
 
 import { useState } from 'react';
 import api from '../api';
+import { errorMessage } from '../format';
 
 const EMPTY = { first_name: '', last_name: '', company: '', email: '', phone: '' };
-
-function errorMessage(err) {
-  const detail = err.response?.data?.detail;
-  if (Array.isArray(detail)) {
-    return detail.map((d) => d.msg.replace(/^Value error, /, '')).join('. ');
-  }
-  if (typeof detail === 'string') return detail;
-  return 'Could not add the lead. Please try again.';
-}
 
 export default function AddLeadForm({ onAdded }) {
   const [form, setForm] = useState(EMPTY);
@@ -37,7 +29,7 @@ export default function AddLeadForm({ onAdded }) {
       setForm(EMPTY);
       onAdded();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, 'Could not add the lead. Please try again.'));
     } finally {
       setSaving(false);
     }

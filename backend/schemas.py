@@ -5,7 +5,7 @@ Shapes of data going in and out of the API.
 Internal integer ids never appear here; only public uuids.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, PlainSerializer, field_validator, model_validator
@@ -33,6 +33,22 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ---------- Dropdown lists ----------
+class StatusOut(BaseModel):
+    name: str
+    sort_order: int
+    is_exit: bool
+
+    model_config = {"from_attributes": True}
+
+
+class OwnerOut(BaseModel):
+    uuid: str
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 # ---------- Leads ----------
 def _as_utc(value: datetime) -> str:
     """DB times are naive UTC. Send them with an explicit UTC offset."""
@@ -47,7 +63,8 @@ Source = Literal[SOURCES]
 Priority = Literal[PRIORITIES]
 
 
-class LeadCreate(BaseModel):
+class _PersonAndCompany(BaseModel):
+    """The lead fields a person types in. Blank text is stored as NULL."""
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     job_title: Optional[str] = None
@@ -61,16 +78,23 @@ class LeadCreate(BaseModel):
     company_size: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
-    source: Source = "Other"
-    priority: Priority = "warm"
 
-    @field_validator("*", mode="before")
+    @field_validator(
+        "first_name", "last_name", "job_title", "email", "phone", "phone_2",
+        "linkedin_url", "company", "website", "industry", "company_size", "city",
+        "country", mode="before",
+    )
     @classmethod
     def _blank_to_none(cls, value):
         if isinstance(value, str):
             value = value.strip()
             return value or None
         return value
+
+
+class LeadCreate(_PersonAndCompany):
+    source: Source = "Other"
+    priority: Priority = "warm"
 
     @model_validator(mode="after")
     def _name_and_contact_required(self):
@@ -79,6 +103,20 @@ class LeadCreate(BaseModel):
         if not (self.email or self.phone or self.linkedin_url):
             raise ValueError("A lead needs an email, phone or LinkedIn URL")
         return self
+
+
+class LeadUpdate(_PersonAndCompany):
+    """PATCH body: only the fields that are sent are changed."""
+    source: Optional[Source] = None
+    priority: Optional[Priority] = None
+    status: Optional[str] = None
+    owner_uuid: Optional[str] = None  # null = Unassigned
+    next_follow_up: Optional[date] = None  # null = no follow-up
+    notes: Optional[str] = None  # kept as typed (not stripped)
+
+
+# LeadOut fields built from relationships, not copied from a column.
+_RELATED_FIELDS = ("status", "owner", "owner_uuid", "notes_updated_by", "created_by")
 
 
 class LeadOut(BaseModel):
@@ -100,6 +138,13 @@ class LeadOut(BaseModel):
     priority: str
     status: str
     owner: Optional[str] = None       # owner's name
+    owner_uuid: Optional[str] = None
+    call_attempts: int
+    last_called_at: Optional[UTCDateTime] = None
+    next_follow_up: Optional[date] = None
+    notes: Optional[str] = None
+    notes_updated_by: Optional[str] = None  # editor's name
+    notes_updated_at: Optional[UTCDateTime] = None
     created_by: Optional[str] = None  # creator's name
     created_at: UTCDateTime           # "Added to CRM"
     updated_at: UTCDateTime
@@ -107,11 +152,13 @@ class LeadOut(BaseModel):
     @classmethod
     def from_lead(cls, lead: Lead) -> "LeadOut":
         data = {name: getattr(lead, name) for name in cls.model_fields
-                if name not in ("status", "owner", "created_by")}
+                if name not in _RELATED_FIELDS}
         return cls(
             **data,
             status=lead.status.name,
             owner=lead.owner.name if lead.owner else None,
+            owner_uuid=lead.owner.uuid if lead.owner else None,
+            notes_updated_by=lead.notes_editor.name if lead.notes_editor else None,
             created_by=lead.creator.name if lead.creator else None,
         )
 
