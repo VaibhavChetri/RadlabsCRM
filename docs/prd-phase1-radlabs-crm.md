@@ -20,7 +20,7 @@ Rebuild the existing app into an internal Radlabs CRM for the sales team.
 - Each team member has their own login. Everyone sees all leads, and each lead has an Owner (the assigned caller).
 - Leads are imported from any source by uploading an Excel or CSV file. A mapping screen matches file columns to CRM fields. Saved presets mean an Apollo export maps automatically. A manual "Add lead" form covers one-off leads.
 - Imports never create duplicates. A person who already exists is matched by email, phone or LinkedIn URL. Only their missing information is filled in. Their status, owner, notes and call history are never changed by an import.
-- Each lead has a 10-stage cold-call pipeline, a +1 Call button, a Last called time, a Next follow-up date, a Priority (Hot / Warm / Cold), and a Notes thread: each saved note is kept with its author and time, like a chat, so whoever takes over the lead has the full story.
+- Each lead has a 10-stage cold-call pipeline, a +1 Call button, a Last called time, a Next follow-up date, a Priority (Hot / Warm / Cold), and a Notes thread: each saved note is kept with its author and time, newest first, so whoever takes over the lead has the full story.
 - The home screen is "My call list today": overdue and today's follow-ups first, then the caller's new leads with Hot ones first.
 - An analytics strip with visual charts sits on top. It shows the pipeline funnel, calls per day, leads added per day, and leads by source. It can show "Me" or "Team", and This week / This month / Custom dates.
 - A Team stats page compares team members. An Admin page lets the admin add users, deactivate them, and reset passwords.
@@ -85,7 +85,7 @@ Rebuild the existing app into an internal Radlabs CRM for the sales team.
 46. As a team member, I want to change a lead's Owner, so that leads can be handed over.
 47. As a team member, I want to write a note and save it to the lead's Notes thread, so that I can record anything I learn on a call.
 48. As a team member, I want each saved note to show my name and the date and time automatically, so that others can see who wrote what and when.
-49. As a team member, I want to see every note on a lead, oldest first like a chat, and I want notes never to be edited or deleted (they go only with the lead), so that a colleague who takes over the lead has the whole conversation.
+49. As a team member, I want to see every note on a lead below the write box, newest first, and I want notes never to be edited or deleted (they go only with the lead), so that a colleague who takes over the lead has the whole conversation.
 50. As a team member, I want to see when a lead was added to the CRM and by whom, so that I know how old the lead is.
 51. As a team member, I want to see when a lead was last updated, so that I can spot leads nobody is working.
 52. As a team member, I want to delete a lead that is junk, so that the list stays clean.

@@ -202,7 +202,7 @@ def test_lead_detail_routes_need_a_login(client):
     assert client.post(f"{url}/notes", json={"body": "x"}).status_code == 401
 
 
-def test_notes_thread_shows_every_note_oldest_first_to_the_next_owner(
+def test_notes_thread_shows_every_note_newest_first_to_the_next_owner(
         client, auth_headers, make_user, db):
     from datetime import timedelta
     from models import LeadNote
@@ -226,8 +226,8 @@ def test_notes_thread_shows_every_note_oldest_first_to_the_next_owner(
 
     assert res.status_code == 200, res.text
     assert [(n["author"], n["body"]) for n in res.json()] == [
-        ("Asha", "Asked for pricing"),
         ("Asha", "Sent the proposal"),
+        ("Asha", "Asked for pricing"),
     ]
     assert "id" not in res.json()[0]
 

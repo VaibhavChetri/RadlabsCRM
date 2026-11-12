@@ -249,14 +249,14 @@ textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 
 button.danger { background: var(--danger); margin-top: 8px; }
 button.danger:hover { background: #b91c1c; }
 
-/* Notes thread: oldest at the top, newest at the bottom, like a chat. */
+/* Notes thread: below the write box, newest at the top. */
 .thread {
   max-height: 360px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-top: 16px;
 }
 .note {
   background: #f6f8fc;

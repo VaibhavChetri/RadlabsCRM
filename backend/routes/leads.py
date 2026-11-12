@@ -9,7 +9,7 @@ GET    /leads/{uuid}        one lead with every field
 PATCH  /leads/{uuid}        edit fields, status, owner, follow-up
 DELETE /leads/{uuid}        delete (calls and history go with it)
 POST   /leads/{uuid}/call   +1 Call
-GET    /leads/{uuid}/notes  notes thread, oldest first
+GET    /leads/{uuid}/notes  notes thread, newest first
 POST   /leads/{uuid}/notes  add a note (signed with my name and the time)
 """
 
@@ -120,7 +120,7 @@ def list_notes(
         db.query(LeadNote)
         .options(joinedload(LeadNote.author))
         .filter(LeadNote.lead_id == lead.id)
-        .order_by(LeadNote.created_at, LeadNote.id)
+        .order_by(LeadNote.created_at.desc(), LeadNote.id.desc())
         .all()
     )
     return [NoteOut.from_note(note) for note in notes]

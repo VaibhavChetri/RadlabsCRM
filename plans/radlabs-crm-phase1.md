@@ -62,7 +62,7 @@ Swap the client-inbox foundation for the CRM foundation and prove one full path 
 
 ### What to build
 
-A full lead page. Every field is shown and editable. Phone shows tap-to-call and a WhatsApp link; LinkedIn and website open in a new tab. Status dropdown with the 10 stages; Priority (Hot/Warm/Cold); Owner dropdown (active users plus "Unassigned"). A call block with "+1 Call" (adds to attempts, sets Last called, writes a `calls` row), the attempts count, Last called, and a Next follow-up date picker. A Notes thread: write a note, save it, and it is kept with the author's name and the time, oldest first like a chat. Notes cannot be edited or deleted; they go only with the lead, so a new owner gets the full story. (Changed on 12 Nov 2026 from the planned single Notes box + Stamp button.) "Do not call" is clearly marked. Delete asks for confirmation. All writes go through the Lead service, which records status history and signs each note.
+A full lead page. Every field is shown and editable. Phone shows tap-to-call and a WhatsApp link; LinkedIn and website open in a new tab. Status dropdown with the 10 stages; Priority (Hot/Warm/Cold); Owner dropdown (active users plus "Unassigned"). A call block with "+1 Call" (adds to attempts, sets Last called, writes a `calls` row), the attempts count, Last called, and a Next follow-up date picker. A Notes thread: write a note, save it, and it is kept with the author's name and the time. The write box sits on top; the thread is below it, newest first. Notes cannot be edited or deleted; they go only with the lead, so a new owner gets the full story. (Changed on 12 Nov 2026 from the planned single Notes box + Stamp button.) "Do not call" is clearly marked. Delete asks for confirmation. All writes go through the Lead service, which records status history and signs each note.
 
 ### Acceptance criteria
 
@@ -70,7 +70,7 @@ A full lead page. Every field is shown and editable. Phone shows tap-to-call and
 - [x] Status change writes a `status_changes` row with from, to, user and time.
 - [x] "+1 Call" adds 1 to attempts, sets Last called, and writes one `calls` row.
 - [x] The follow-up date saves and clears.
-- [x] Saving a note adds it to the thread with author and time; every user sees the whole thread, oldest first.
+- [x] Saving a note adds it to the thread with author and time; every user sees the whole thread, newest first, below the write box.
 - [x] Do-not-call leads show a clear warning badge.
 - [x] `migrate_phase2.py` moves any old Notes box text into the thread and drops the old columns.
 - [x] Delete needs a confirmation and removes the lead with its calls, history and notes.

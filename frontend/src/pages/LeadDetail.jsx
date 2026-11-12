@@ -4,10 +4,10 @@
 //   Details   every person/company field, edited in a form, "Save changes".
 //   Pipeline  Status, Priority, Owner: each saves as soon as it changes.
 //   Calls     "+1 Call", attempts, Last called, Next follow-up date.
-//   Notes     a thread, like a chat: each saved note is kept with its
-//             author and time, oldest at the top. Nobody can edit or delete
-//             a note; they go only when the lead is deleted. Whoever owns
-//             the lead next reads the whole story.
+//   Notes     a box to write in, then the thread below it. Each saved
+//             note is kept with its author and time, newest at the top.
+//             Nobody can edit or delete a note; they go only when the lead
+//             is deleted. Whoever owns the lead next reads the whole story.
 //   Delete    asks first.
 // Every save is a PATCH (or a POST); the server writes the history.
 
@@ -104,10 +104,10 @@ export default function LeadDetail() {
       ));
   }, [uuid]);
 
-  // Keep the newest note in view, like a chat.
+  // Keep the newest note (at the top) in view after saving.
   useEffect(() => {
     const box = threadRef.current;
-    if (box) box.scrollTop = box.scrollHeight;
+    if (box) box.scrollTop = 0;
   }, [notes]);
 
   // Run one save; show the server's answer or its error.
@@ -162,7 +162,7 @@ export default function LeadDetail() {
     setPosting(true);
     try {
       const res = await api.post(`/leads/${uuid}/notes`, { body: draft });
-      setNotes((current) => [...current, res.data]);
+      setNotes((current) => [res.data, ...current]);
       setDraft('');
     } catch (err) {
       setError(errorMessage(err, 'Could not save the note.'));
@@ -315,19 +315,6 @@ export default function LeadDetail() {
               <h2>Notes</h2>
               <span className="muted">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
             </div>
-            <div className="thread" ref={threadRef}>
-              {notes.length === 0 && (
-                <p className="muted">No notes yet. Write what you learn on each call.</p>
-              )}
-              {notes.map((note, i) => (
-                <div key={i} className="note">
-                  <div className="note-meta">
-                    <strong>{note.author}</strong> · {formatDateTime(note.created_at)}
-                  </div>
-                  <div className="note-body">{note.body}</div>
-                </div>
-              ))}
-            </div>
             <form onSubmit={handleAddNote}>
               <textarea rows={3} value={draft} placeholder="Write a note… (Cmd/Ctrl + Enter to save)"
                 onChange={(e) => setDraft(e.target.value)} onKeyDown={handleNoteKey} />
@@ -335,6 +322,20 @@ export default function LeadDetail() {
                 {posting ? 'Saving…' : 'Save note'}
               </button>
             </form>
+            <div className="thread" ref={threadRef}>
+              {notes.length === 0 && (
+                <p className="muted">No notes yet. Write what you learn on each call.</p>
+              )}
+              {notes.map((note, i) => (
+                // Notes are only ever added on top, so this key stays stable.
+                <div key={notes.length - i} className="note">
+                  <div className="note-meta">
+                    <strong>{note.author}</strong> · {formatDateTime(note.created_at)}
+                  </div>
+                  <div className="note-body">{note.body}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="card">
