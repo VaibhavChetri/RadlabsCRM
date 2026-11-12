@@ -5,6 +5,7 @@ All routes need a valid login. Leads are addressed by public uuid only.
 
 POST   /leads          add one lead (manual form)
 GET    /leads          all leads, newest first -> { items, total }
+GET    /leads/today?today=YYYY-MM-DD   my call list -> { overdue, due_today, new }
 GET    /leads/{uuid}        one lead with every field
 PATCH  /leads/{uuid}        edit fields, status, owner, follow-up
 DELETE /leads/{uuid}        delete (calls and history go with it)
@@ -13,14 +14,19 @@ GET    /leads/{uuid}/notes  notes thread, newest first
 POST   /leads/{uuid}/notes  add a note (signed with my name and the time)
 """
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
+import lead_query
 import lead_service
 from auth import get_current_user
 from database import get_db
 from models import Lead, LeadNote, User
-from schemas import LeadCreate, LeadList, LeadOut, LeadUpdate, NoteCreate, NoteOut
+from schemas import (
+    LeadCreate, LeadList, LeadOut, LeadUpdate, NoteCreate, NoteOut, TodayList,
+)
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -50,6 +56,21 @@ def list_leads(
         .all()
     )
     return LeadList(items=[LeadOut.from_lead(lead) for lead in leads], total=len(leads))
+
+
+# Declared before /{lead_uuid} so "today" is not read as a uuid.
+@router.get("/today", response_model=TodayList)
+def today_list(
+    today: date,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """`today` is the caller's local date (the browser sends it)."""
+    sections = lead_query.today_list(db, user, today)
+    return TodayList(**{
+        name: [LeadOut.from_lead(lead) for lead in leads]
+        for name, leads in sections.items()
+    })
 
 
 def _get_lead_or_404(db: Session, lead_uuid: str) -> Lead:

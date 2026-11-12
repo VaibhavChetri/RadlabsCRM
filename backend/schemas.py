@@ -163,6 +163,13 @@ class LeadList(BaseModel):
     total: int
 
 
+class TodayList(BaseModel):
+    """Home-screen call list, in the order the caller works it."""
+    overdue: list[LeadOut]    # follow-up date before today
+    due_today: list[LeadOut]  # follow-up date is today
+    new: list[LeadOut]        # status New, no follow-up due yet
+
+
 # ---------- Notes thread ----------
 class NoteCreate(BaseModel):
     body: str

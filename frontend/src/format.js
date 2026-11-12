@@ -11,6 +11,22 @@ export function formatDateTime(value) {
   });
 }
 
+// A plain "YYYY-MM-DD" date (e.g. a follow-up) -> "12 Nov 2026".
+// Parsed as a local date, so it never shifts by a day.
+export function formatDate(value) {
+  if (!value) return '';
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+}
+
+// Today in the browser's time zone as "YYYY-MM-DD" (what the API expects).
+export function localDateISO(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 export function fullName(lead) {
   return [lead.first_name, lead.last_name].filter(Boolean).join(' ');
 }

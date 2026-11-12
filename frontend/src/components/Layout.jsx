@@ -28,6 +28,7 @@ export default function Layout() {
         <div className="topbar-left">
           <span className="brand">Radlabs CRM</span>
           <nav className="nav">
+            <NavLink to="/" end>My calls</NavLink>
             <NavLink to="/leads">All leads</NavLink>
           </nav>
         </div>

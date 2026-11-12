@@ -88,11 +88,11 @@ The home screen after login. For the logged-in user: overdue follow-ups (red), t
 
 ### Acceptance criteria
 
-- [ ] Only the user's own leads appear; exit-status leads are excluded.
-- [ ] Order: overdue → due today → New leads by priority.
-- [ ] Overdue rows are red.
-- [ ] Inline +1 Call and status change work, and the list refreshes.
-- [ ] API test with seeded leads checks the sections and their order.
+- [x] Only the user's own leads appear; exit-status leads are excluded.
+- [x] Order: overdue → due today → New leads by priority.
+- [x] Overdue rows are red.
+- [x] Inline +1 Call and status change work, and the list refreshes.
+- [x] API test with seeded leads checks the sections and their order.
 
 ---
 

@@ -267,3 +267,19 @@ button.danger:hover { background: #b91c1c; }
 .note-meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .note-meta strong { color: var(--text); }
 .note-body { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ----- Home: my call list ----- */
+.nav { display: flex; gap: 16px; }
+.small { font-size: 12px; }
+select.compact { width: auto; min-width: 140px; margin-top: 0; padding: 6px 8px; font-size: 13px; }
+button.compact { padding: 6px 12px; font-size: 13px; }
+td .input-row button { margin-top: 0; }
+
+.row-overdue td { background: #fef2f2; }
+.row-overdue td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.overdue-date { color: var(--danger); font-weight: 600; }
+.overdue-title { color: var(--danger); }
+
+.badge.priority-hot { background: #fef2f2; color: var(--danger); }
+.badge.priority-warm { background: #fff7ed; color: #c2410c; }
+.badge.priority-cold { background: #eff6ff; color: #1d4ed8; }

@@ -1,14 +1,15 @@
 // App.jsx
 // -------
 // Routes:
-//   /login   public login screen
+//   /login         public login screen
+//   /              Home: "My call list today"
 //   /leads         all leads + "Add lead" form
 //   /leads/:uuid   one lead: every field, status, calls, notes
-//   /        Home (call list arrives in Phase 3; for now it opens /leads)
 
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { TOKEN_KEY } from './api';
 import Layout from './components/Layout';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Leads from './pages/Leads';
 import LeadDetail from './pages/LeadDetail';
@@ -29,7 +30,7 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Navigate to="/leads" replace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/leads" element={<Leads />} />
           <Route path="/leads/:uuid" element={<LeadDetail />} />
         </Route>
