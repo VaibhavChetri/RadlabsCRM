@@ -1,18 +1,18 @@
 // App.jsx
 // -------
-// Sets up the 2 routes the app needs and protects the dashboard.
-//   /login      -> the login screen (public)
-//   /dashboard  -> the leads dashboard (only if logged in)
-//   /           -> bounce to the right place depending on login state
+// Routes:
+//   /login   public login screen
+//   /leads   all leads + "Add lead" form
+//   /        Home (call list arrives in Phase 3; for now it opens /leads)
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { TOKEN_KEY } from './api';
+import Layout from './components/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import Leads from './pages/Leads';
 
-// A small wrapper: if there's no token, kick the user to /login.
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" replace />;
+  return localStorage.getItem(TOKEN_KEY) ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -21,15 +21,16 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
-          path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Layout />
             </ProtectedRoute>
           }
-        />
-        {/* Anything else -> send to dashboard (which itself guards for login). */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        >
+          <Route path="/" element={<Navigate to="/leads" replace />} />
+          <Route path="/leads" element={<Leads />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

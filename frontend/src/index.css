@@ -1,4 +1,4 @@
-/* Simple, clean styling for the Leads app. Plain CSS, no framework. */
+/* Radlabs CRM styling. Plain CSS, no framework. */
 
 * { box-sizing: border-box; }
 
@@ -30,7 +30,7 @@ body {
 }
 
 .page {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
 }
@@ -157,7 +157,39 @@ button.secondary:hover { background: #f3f4f6; }
 .trend-col { flex: 1; height: 100%; display: flex; align-items: flex-end; }
 .trend-bar { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s; }
 
-/* ----- Table (used in Step 8) ----- */
+/* ----- Table ----- */
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+
+.table-wrap { overflow-x: auto; }
+td { white-space: nowrap; }
+
+/* ----- Top bar ----- */
+.topbar-left, .topbar-right { display: flex; align-items: center; gap: 16px; }
+.brand { font-weight: 700; font-size: 18px; }
+.nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; }
+.nav a.active { color: var(--primary); }
+.me { font-size: 14px; color: var(--muted); }
+
+/* ----- Page pieces ----- */
+.page .card { margin-bottom: 20px; padding: 20px 22px; }
+h2 { margin: 0 0 14px; font-size: 16px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; }
+.muted { color: var(--muted); font-size: 13px; }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0 12px;
+}
+button.inline { width: auto; padding: 10px 18px; }

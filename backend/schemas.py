@@ -1,91 +1,121 @@
 """
 schemas.py
 ----------
-Pydantic models = the "shape" of data going IN and OUT of the API.
-
-- Request schemas validate what the caller sends (e.g. login needs an
-  email + password).
-- Response schemas control what we send back (e.g. we NEVER send the
-  password hash out).
-
-Lead-related schemas are added in Step 3 when we build the leads routes.
+Shapes of data going in and out of the API.
+Internal integer ids never appear here; only public uuids.
 """
 
-from typing import Optional, Literal
-from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from datetime import datetime, timezone
+from typing import Annotated, Literal, Optional
+
+from pydantic import BaseModel, EmailStr, PlainSerializer, field_validator, model_validator
+
+from models import PRIORITIES, SOURCES, Lead
 
 
 # ---------- Auth ----------
 class LoginRequest(BaseModel):
-    """Body of POST /auth/login — matches the React form (JSON)."""
     email: EmailStr
     password: str
 
 
 class Token(BaseModel):
-    """What /auth/login returns."""
     access_token: str
     token_type: str = "bearer"
 
 
-# ---------- Clients ----------
-class ClientCreate(BaseModel):
-    """Body of POST /clients/create."""
-    name: str
-    email: EmailStr
-    password: str
-
-
-class ClientOut(BaseModel):
-    """
-    Safe client info to send back. We expose the public `uuid` as the client's
-    id and NEVER the internal integer primary key (no password either).
-    """
+class UserOut(BaseModel):
     uuid: str
     name: str
     email: EmailStr
+    role: str
 
-    class Config:
-        from_attributes = True   # lets us build this straight from a DB object
+    model_config = {"from_attributes": True}
 
 
 # ---------- Leads ----------
-class LeadSubmit(BaseModel):
-    """
-    Body of POST /leads/submit — sent by a client's website contact form.
-    This endpoint is PUBLIC, so the form must tell us which client the lead
-    belongs to via client_id. That id is now the client's PUBLIC UUID (a
-    string), not the internal number. Only client_id and name are required;
-    the rest are optional because forms often collect different fields.
-    """
-    client_id: str          # the client's public UUID
-    name: str
+def _as_utc(value: datetime) -> str:
+    """DB times are naive UTC. Send them with an explicit UTC offset."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
+UTCDateTime = Annotated[datetime, PlainSerializer(_as_utc, return_type=str)]
+
+Source = Literal[SOURCES]
+Priority = Literal[PRIORITIES]
+
+
+class LeadCreate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    job_title: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    message: Optional[str] = None
+    phone_2: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    company: Optional[str] = None
+    website: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    source: Source = "Other"
+    priority: Priority = "warm"
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank_to_none(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+    @model_validator(mode="after")
+    def _name_and_contact_required(self):
+        if not (self.first_name or self.last_name):
+            raise ValueError("A lead needs a first or last name")
+        if not (self.email or self.phone or self.linkedin_url):
+            raise ValueError("A lead needs an email, phone or LinkedIn URL")
+        return self
 
 
 class LeadOut(BaseModel):
-    """
-    The shape of a lead we send BACK to the dashboard (GET /leads/).
-    These are exactly the columns the leads table on screen will show.
-    """
-    id: int
-    name: Optional[str] = None
+    uuid: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    job_title: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    message: Optional[str] = None
+    phone_2: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    company: Optional[str] = None
+    website: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    source: str
+    priority: str
     status: str
-    submitted_at: datetime
+    owner: Optional[str] = None       # owner's name
+    created_by: Optional[str] = None  # creator's name
+    created_at: UTCDateTime           # "Added to CRM"
+    updated_at: UTCDateTime
 
-    class Config:
-        from_attributes = True   # build straight from a DB Lead object
+    @classmethod
+    def from_lead(cls, lead: Lead) -> "LeadOut":
+        data = {name: getattr(lead, name) for name in cls.model_fields
+                if name not in ("status", "owner", "created_by")}
+        return cls(
+            **data,
+            status=lead.status.name,
+            owner=lead.owner.name if lead.owner else None,
+            created_by=lead.creator.name if lead.creator else None,
+        )
 
 
-class LeadStatusUpdate(BaseModel):
-    """
-    Body of PATCH /leads/{id}/status. Literal means only these exact values
-    are accepted — anything else is auto-rejected with a 422 error.
-    """
-    status: Literal["new", "contacted", "closed"]
+class LeadList(BaseModel):
+    items: list[LeadOut]
+    total: int

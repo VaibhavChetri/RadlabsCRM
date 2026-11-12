@@ -13,6 +13,10 @@ bcrypt==4.0.1          # pinned: passlib breaks with bcrypt >= 4.1 (known issue)
 
 # ---- Misc ----
 email-validator        # makes Pydantic's EmailStr work (validates emails)
-python-multipart       # lets FastAPI read form data
+python-multipart       # lets FastAPI read uploaded files (Phase 5 import)
 python-dotenv          # loads the .env file
-openpyxl               # Excel export (used in Step 5)
+openpyxl               # Excel backup, export and import
+
+# ---- Tests ----
+pytest
+httpx                  # needed by FastAPI's TestClient
