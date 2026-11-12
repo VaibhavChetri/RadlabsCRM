@@ -1,4 +1,4 @@
-"""Phase 2: the lead detail page API (get, edit, status, +1 call, notes, delete)."""
+"""Phase 2: the lead detail page API (get, edit, status, +1 call, notes thread, delete)."""
 
 
 def _add_lead(client, headers, **fields):
@@ -28,8 +28,6 @@ def test_get_lead_returns_every_field(client, auth_headers):
     assert lead["call_attempts"] == 0
     assert lead["last_called_at"] is None
     assert lead["next_follow_up"] is None
-    assert lead["notes"] is None
-    assert lead["notes_updated_by"] is None
 
 
 def test_get_unknown_lead_is_404(client, auth_headers):
@@ -155,51 +153,14 @@ def test_patch_next_follow_up_saves_and_clears(client, auth_headers):
     assert client.get(url, headers=headers).json()["next_follow_up"] is None
 
 
-def test_patch_notes_shows_last_edited_by(client, auth_headers):
-    headers = auth_headers(name="Asha")
-    lead = _add_lead(client, headers)
-
-    res = client.patch(f"/leads/{lead['uuid']}", json={"notes": "Wants a demo in Dec"},
-                       headers=headers)
-
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["notes"] == "Wants a demo in Dec"
-    assert body["notes_updated_by"] == "Asha"
-    assert body["notes_updated_at"] is not None
-
-
-def test_stamp_uses_my_name_and_my_local_time(client, auth_headers):
-    from datetime import datetime, timedelta
-    from zoneinfo import ZoneInfo
-
-    import lead_service
-
-    headers = auth_headers(name="Asha")
-
-    res = client.get("/leads/stamp", params={"tz": "Asia/Kolkata"}, headers=headers)
-
-    assert res.status_code == 200, res.text
-    now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
-    # The minute may tick over between the request and this line.
-    assert res.json()["text"] in {
-        lead_service.stamp_text("Asha", now_ist),
-        lead_service.stamp_text("Asha", now_ist - timedelta(minutes=1)),
-    }
-
-
-def test_stamp_with_a_bad_timezone_is_422(client, auth_headers):
-    res = client.get("/leads/stamp", params={"tz": "Mars/Base"}, headers=auth_headers())
-    assert res.status_code == 422
-
-
-def test_delete_removes_the_lead_with_its_calls_and_history(client, auth_headers, db):
-    from models import Call, Lead, StatusChange
+def test_delete_removes_the_lead_with_its_calls_history_and_notes(client, auth_headers, db):
+    from models import Call, Lead, LeadNote, StatusChange
 
     headers = auth_headers()
     lead = _add_lead(client, headers)
     client.post(f"/leads/{lead['uuid']}/call", headers=headers)
     client.patch(f"/leads/{lead['uuid']}", json={"status": "Attempted"}, headers=headers)
+    client.post(f"/leads/{lead['uuid']}/notes", json={"body": "Junk"}, headers=headers)
     lead_id = db.query(Lead).filter(Lead.uuid == lead["uuid"]).one().id
 
     res = client.delete(f"/leads/{lead['uuid']}", headers=headers)
@@ -208,6 +169,7 @@ def test_delete_removes_the_lead_with_its_calls_and_history(client, auth_headers
     assert client.get(f"/leads/{lead['uuid']}", headers=headers).status_code == 404
     assert db.query(Call).filter(Call.lead_id == lead_id).count() == 0
     assert db.query(StatusChange).filter(StatusChange.lead_id == lead_id).count() == 0
+    assert db.query(LeadNote).filter(LeadNote.lead_id == lead_id).count() == 0
 
 
 def test_a_failed_patch_changes_nothing(client, auth_headers, db):
@@ -236,4 +198,44 @@ def test_lead_detail_routes_need_a_login(client):
     assert client.patch(url, json={"status": "Won"}).status_code == 401
     assert client.delete(url).status_code == 401
     assert client.post(f"{url}/call").status_code == 401
-    assert client.get("/leads/stamp").status_code == 401
+    assert client.get(f"{url}/notes").status_code == 401
+    assert client.post(f"{url}/notes", json={"body": "x"}).status_code == 401
+
+
+def test_notes_thread_shows_every_note_oldest_first_to_the_next_owner(
+        client, auth_headers, make_user, db):
+    from datetime import timedelta
+    from models import LeadNote
+
+    asha = auth_headers(name="Asha", email="asha@example.com")
+    vikram = auth_headers(name="Vikram", email="vikram@example.com")
+    lead = _add_lead(client, asha)
+    url = f"/leads/{lead['uuid']}/notes"
+
+    res = client.post(url, json={"body": "Asked for pricing"}, headers=asha)
+    assert res.status_code == 201, res.text
+    assert res.json()["author"] == "Asha"
+    assert res.json()["created_at"]
+    # DATETIME has 1-second precision: make the order unambiguous.
+    first = db.query(LeadNote).one()
+    first.created_at -= timedelta(minutes=5)
+    db.commit()
+    client.post(url, json={"body": "Sent the proposal"}, headers=asha)
+
+    res = client.get(url, headers=vikram)  # a colleague who takes over the lead
+
+    assert res.status_code == 200, res.text
+    assert [(n["author"], n["body"]) for n in res.json()] == [
+        ("Asha", "Asked for pricing"),
+        ("Asha", "Sent the proposal"),
+    ]
+    assert "id" not in res.json()[0]
+
+
+def test_an_empty_note_is_422(client, auth_headers):
+    headers = auth_headers()
+    lead = _add_lead(client, headers)
+
+    res = client.post(f"/leads/{lead['uuid']}/notes", json={"body": "  "}, headers=headers)
+
+    assert res.status_code == 422

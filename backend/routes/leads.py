@@ -5,24 +5,22 @@ All routes need a valid login. Leads are addressed by public uuid only.
 
 POST   /leads          add one lead (manual form)
 GET    /leads          all leads, newest first -> { items, total }
-GET    /leads/stamp?tz=     Notes stamp text for me, in my local time
 GET    /leads/{uuid}        one lead with every field
-PATCH  /leads/{uuid}        edit fields, status, owner, follow-up, notes
+PATCH  /leads/{uuid}        edit fields, status, owner, follow-up
 DELETE /leads/{uuid}        delete (calls and history go with it)
 POST   /leads/{uuid}/call   +1 Call
+GET    /leads/{uuid}/notes  notes thread, oldest first
+POST   /leads/{uuid}/notes  add a note (signed with my name and the time)
 """
 
-from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 import lead_service
 from auth import get_current_user
 from database import get_db
-from models import Lead, User
-from schemas import LeadCreate, LeadList, LeadOut, LeadUpdate
+from models import Lead, LeadNote, User
+from schemas import LeadCreate, LeadList, LeadOut, LeadUpdate, NoteCreate, NoteOut
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -52,20 +50,6 @@ def list_leads(
         .all()
     )
     return LeadList(items=[LeadOut.from_lead(lead) for lead in leads], total=len(leads))
-
-
-# Fixed paths must be declared before /{lead_uuid}.
-@router.get("/stamp")
-def stamp(
-    tz: str = Query("UTC", description="IANA time zone of the browser, e.g. Asia/Kolkata"),
-    user: User = Depends(get_current_user),
-):
-    try:
-        zone = ZoneInfo(tz)
-    except (ZoneInfoNotFoundError, ValueError):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                            detail=f"Unknown time zone: {tz}")
-    return {"text": lead_service.stamp_text(user.name, datetime.now(zone))}
 
 
 def _get_lead_or_404(db: Session, lead_uuid: str) -> Lead:
@@ -123,3 +107,37 @@ def delete_lead(
     lead_service.delete_lead(db, _get_lead_or_404(db, lead_uuid))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{lead_uuid}/notes", response_model=list[NoteOut])
+def list_notes(
+    lead_uuid: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = _get_lead_or_404(db, lead_uuid)
+    notes = (
+        db.query(LeadNote)
+        .options(joinedload(LeadNote.author))
+        .filter(LeadNote.lead_id == lead.id)
+        .order_by(LeadNote.created_at, LeadNote.id)
+        .all()
+    )
+    return [NoteOut.from_note(note) for note in notes]
+
+
+@router.post("/{lead_uuid}/notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
+def add_note(
+    lead_uuid: str,
+    payload: NoteCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = _get_lead_or_404(db, lead_uuid)
+    try:
+        note = lead_service.add_note(db, lead, payload.body, user)
+    except lead_service.LeadError as err:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err))
+    db.commit()
+    return NoteOut.from_note(note)

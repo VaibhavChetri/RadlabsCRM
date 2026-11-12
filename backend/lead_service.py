@@ -6,11 +6,9 @@ calls) are always written. Functions add/flush but do NOT commit: the
 caller owns the transaction (an import can then be all-or-nothing).
 """
 
-from datetime import datetime
-
 from sqlalchemy.orm import Session
 
-from models import Call, Lead, Status, StatusChange, User, utc_now
+from models import Call, Lead, LeadNote, Status, StatusChange, User, utc_now
 
 NEW_STATUS = "New"
 
@@ -96,8 +94,6 @@ def update_lead(db: Session, lead: Lead, changes: dict, user: User) -> Lead:
         change_status(db, lead, changes["status"], user)
     if "owner_uuid" in changes:
         change_owner(db, lead, changes["owner_uuid"])
-    if "notes" in changes:
-        save_notes(db, lead, changes["notes"], user)
     db.flush()
     return lead
 
@@ -124,29 +120,19 @@ def _check_name_and_contact(lead: Lead) -> None:
         raise LeadError("A lead needs an email, phone or LinkedIn URL")
 
 
-def save_notes(db: Session, lead: Lead, notes: str | None, user: User) -> Lead:
-    """Save the Notes box and record who edited it and when. No change = no-op."""
-    notes = notes if notes and notes.strip() else None
-    if notes == lead.notes:
-        return lead
-    lead.notes = notes
-    lead.notes_updated_by = user.id
-    lead.notes_editor = user
-    lead.notes_updated_at = utc_now()
+def add_note(db: Session, lead: Lead, body: str, user: User) -> LeadNote:
+    """Add one entry to the lead's notes thread, signed with the author and time."""
+    if not body or not body.strip():
+        raise LeadError("A note cannot be empty")
+    note = LeadNote(lead_id=lead.id, user_id=user.id, body=body.strip(),
+                    created_at=utc_now(), author=user)
+    db.add(note)
     db.flush()
-    return lead
+    return note
 
 
 def delete_lead(db: Session, lead: Lead) -> None:
-    """Delete a junk lead. Its calls and status history go with it (FK cascade)."""
+    """Delete a junk lead. Its calls, status history and notes go with it (FK cascade)."""
     db.delete(lead)
     db.flush()
 
-
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-
-def stamp_text(name: str, when: datetime) -> str:
-    """The Notes "Stamp": '[DD Mon HH:MM · Name] '. `when` is the user's local time."""
-    return f"[{when.day:02d} {_MONTHS[when.month - 1]} {when:%H:%M} · {name}] "

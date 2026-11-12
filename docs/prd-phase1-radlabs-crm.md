@@ -20,7 +20,7 @@ Rebuild the existing app into an internal Radlabs CRM for the sales team.
 - Each team member has their own login. Everyone sees all leads, and each lead has an Owner (the assigned caller).
 - Leads are imported from any source by uploading an Excel or CSV file. A mapping screen matches file columns to CRM fields. Saved presets mean an Apollo export maps automatically. A manual "Add lead" form covers one-off leads.
 - Imports never create duplicates. A person who already exists is matched by email, phone or LinkedIn URL. Only their missing information is filled in. Their status, owner, notes and call history are never changed by an import.
-- Each lead has a 10-stage cold-call pipeline, a +1 Call button, a Last called time, a Next follow-up date, a Priority (Hot / Warm / Cold), and one Notes box with a "Stamp" button that adds the date and the author.
+- Each lead has a 10-stage cold-call pipeline, a +1 Call button, a Last called time, a Next follow-up date, a Priority (Hot / Warm / Cold), and a Notes thread: each saved note is kept with its author and time, like a chat, so whoever takes over the lead has the full story.
 - The home screen is "My call list today": overdue and today's follow-ups first, then the caller's new leads with Hot ones first.
 - An analytics strip with visual charts sits on top. It shows the pipeline funnel, calls per day, leads added per day, and leads by source. It can show "Me" or "Team", and This week / This month / Custom dates.
 - A Team stats page compares team members. An Admin page lets the admin add users, deactivate them, and reset passwords.
@@ -83,9 +83,9 @@ Rebuild the existing app into an internal Radlabs CRM for the sales team.
 44. As a team member, I want every status change saved with who changed it and when, so that the team stats are correct.
 45. As a team member, I want to set Priority (Hot, Warm, Cold), so that the best leads are called first.
 46. As a team member, I want to change a lead's Owner, so that leads can be handed over.
-47. As a team member, I want one free-text Notes box per lead, so that I can write anything I learn on a call.
-48. As a team member, I want a "Stamp" button that adds "[date time · my name]" at the top of the notes, so that others can see who wrote what and when.
-49. As a team member, I want to see "Last edited by X at Y" under the notes, so that I know how fresh they are.
+47. As a team member, I want to write a note and save it to the lead's Notes thread, so that I can record anything I learn on a call.
+48. As a team member, I want each saved note to show my name and the date and time automatically, so that others can see who wrote what and when.
+49. As a team member, I want to see every note on a lead, oldest first like a chat, and I want notes never to be edited or deleted (they go only with the lead), so that a colleague who takes over the lead has the whole conversation.
 50. As a team member, I want to see when a lead was added to the CRM and by whom, so that I know how old the lead is.
 51. As a team member, I want to see when a lead was last updated, so that I can spot leads nobody is working.
 52. As a team member, I want to delete a lead that is junk, so that the list stays clean.
@@ -148,7 +148,7 @@ Deep modules (most of the logic behind a small, stable interface; tested alone):
 - **Import engine.** Input: an uploaded file, a column mapping, a source, an "assign to" rule, and access to existing leads. Output: an import plan (rows to create, rows to update with exactly which fields, rows skipped with a reason) plus a summary report. Steps inside: read .xlsx/.csv → normalise headers → apply mapping → clean values → drop rows with no contact info → merge duplicates inside the file → ask the Lead matcher about each row → assign owners → build the plan. Applying the plan runs in one database transaction. Also suggests a mapping from header names and stores/loads named presets. Ships with a built-in Apollo preset.
 - **Lead matcher / merger.** Input: a candidate lead (cleaned fields). Output: the matching existing lead, if any, and the merged field set. Match order: email (lowercase), then phone (digits only, compared on the last 10 digits), then LinkedIn URL (lowercase, no trailing slash or query). Merge rule: fill empty fields only. Protected fields that are never set by a merge: status, owner, notes, call attempts, last called, next follow-up, priority. Used by both the import engine and the manual "Add lead" form.
 - **Stats engine.** Input: scope (one user or the whole team) and a date range. Output: all card values, the 10-stage funnel (current status counts), calls per day, leads added per day, leads by source, and the per-person team table. "Calls" come from the call log. "Meetings booked" and "Won" come from status-change history inside the range. Conversion % = Won in range ÷ leads added in range. Days with no data return zero so charts have no gaps.
-- **Lead service.** All writes to a lead go through it: edit fields, +1 call (adds 1 to attempts, sets last called, writes a call-log row), change status (writes a status-change row with from/to/user/time), change owner, and save notes (records who edited and when). It also builds the stamp text "[DD Mon HH:MM · Name] ". Bulk actions call the same service per lead so history is always written.
+- **Lead service.** All writes to a lead go through it: edit fields, +1 call (adds 1 to attempts, sets last called, writes a call-log row), change status (writes a status-change row with from/to/user/time), change owner, and add a note to the thread (signed with the author and time; notes are never edited). Bulk actions call the same service per lead so history is always written.
 
 Thin modules (glue):
 
@@ -163,8 +163,9 @@ The old `clients` and `leads` tables are replaced.
 
 - **users** — internal id, public uuid, name, email (unique), password hash, role (admin / member), is_active, created_at.
 - **statuses** — id, name, sort order, is_exit flag. Seeded with the 10 stages. Exit stages: Won, Lost, Not interested, Do not call. Stages live in a table so they can be renamed or added later without a code change.
-- **leads** — internal id, public uuid; first name, last name, job title, email, phone, second phone, LinkedIn URL, company, website, industry, company size, city, country; source; priority (hot / warm / cold); status (FK); owner (FK, nullable); call attempts (default 0), last called at, next follow-up (date); notes (long text), notes updated by, notes updated at; created by, created at ("Added to CRM"), updated at. Indexed on: email, phone, LinkedIn URL, status, owner, next follow-up, created at.
+- **leads** — internal id, public uuid; first name, last name, job title, email, phone, second phone, LinkedIn URL, company, website, industry, company size, city, country; source; priority (hot / warm / cold); status (FK); owner (FK, nullable); call attempts (default 0), last called at, next follow-up (date); created by, created at ("Added to CRM"), updated at. Indexed on: email, phone, LinkedIn URL, status, owner, next follow-up, created at.
 - **calls** — id, lead (FK, delete with the lead), user (FK), called at. One row per +1 Call.
+- **lead_notes** — id, lead (FK, delete with the lead), user (author), body (long text), created at. One row per saved note; never edited.
 - **status_changes** — id, lead (FK, delete with the lead), from status, to status, user, changed at. A new lead writes a first row (no "from" → New) so "added" and status history line up.
 - **import_presets** — id, name (unique), mapping (JSON: file header → CRM field), is_builtin.
 - **imports** — id, user, file name, source, added count, updated count, skipped count, created at.
@@ -200,7 +201,7 @@ Modules with tests:
 
 - **Import engine + Lead matcher.** Sample files: a real-shaped Apollo export, a messy hand-made Excel (odd headers, blank rows, mixed phone formats), a CSV. Cases: header suggestion and preset use; email / phone / LinkedIn matching and their order; fill-blanks-only merge; protected fields never change; duplicates inside one file; rows without contact info skipped with the right reason; assign-to modes including split evenly; report counts; all-or-nothing on failure; file type and size limits.
 - **Stats engine.** Seeded users, leads, calls and status changes over several weeks. Cases: Me vs Team; week, month and custom ranges; zero-filled days; meetings booked and won counted by change date, not current status; conversion %; per-person table including deactivated users.
-- **Lead service.** +1 call updates attempts, last called and writes a call row; status change writes history with the right from/to; notes save records editor and time; stamp format; bulk actions write history for every lead.
+- **Lead service.** +1 call updates attempts, last called and writes a call row; status change writes history with the right from/to; adding a note keeps author and time, empty note refused; bulk actions write history for every lead.
 - **API end-to-end.** Login, wrong password, inactive user refused; member blocked from admin routes; leads CRUD by uuid; duplicate on manual create returns 409; filters, sort and paging; export returns a valid .xlsx; import preview and run over HTTP; stats endpoints return the expected shape.
 
 ## Out of Scope
@@ -211,7 +212,7 @@ Modules with tests:
 - Custom fields defined from the UI.
 - A UI to edit pipeline stages (stages live in a table but are changed by a developer for now).
 - Kanban / drag-and-drop pipeline board.
-- A per-call log with outcomes, or a timeline of activities (one Notes box was chosen instead).
+- A per-call log with outcomes, or a full activity timeline (calls and status changes are logged, but only the Notes thread is shown as a thread).
 - Role-based visibility (callers seeing only their own leads).
 - Hosting, domains, HTTPS, backups in the cloud.
 - Mobile app. The web app should still work on a phone browser for click-to-call.

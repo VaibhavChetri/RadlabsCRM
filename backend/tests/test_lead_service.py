@@ -84,38 +84,28 @@ def test_change_status_to_the_same_status_writes_no_history(db, make_user):
     assert db.query(StatusChange).filter(StatusChange.lead_id == lead.id).count() == 1
 
 
-def test_save_notes_records_who_edited_and_when(db, make_user):
-    creator = make_user(name="Asha", email="asha@example.com")
-    editor = make_user(name="Vikram", email="vikram@example.com")
-    lead = _new_lead(db, creator)
+def test_add_note_keeps_text_author_and_time(db, make_user):
+    from models import LeadNote
+
+    asha = make_user(name="Asha", email="asha@example.com")
+    lead = _new_lead(db, asha)
     before = utc_now() - timedelta(seconds=1)
 
-    lead_service.save_notes(db, lead, "Call back after budget meeting", editor)
+    lead_service.add_note(db, lead, "Wants a demo after Diwali", asha)
     db.commit()
 
-    db.refresh(lead)
-    assert lead.notes == "Call back after budget meeting"
-    assert lead.notes_updated_by == editor.id
-    assert lead.notes_updated_at >= before
+    notes = db.query(LeadNote).filter(LeadNote.lead_id == lead.id).all()
+    assert len(notes) == 1
+    assert notes[0].body == "Wants a demo after Diwali"
+    assert notes[0].user_id == asha.id
+    assert notes[0].created_at >= before
 
 
-def test_saving_unchanged_notes_keeps_the_last_editor(db, make_user):
-    creator = make_user(name="Asha", email="asha@example.com")
-    other = make_user(name="Vikram", email="vikram@example.com")
-    lead = _new_lead(db, creator)
-    lead_service.save_notes(db, lead, "Hello", creator)
-    db.commit()
+def test_an_empty_note_is_refused(db, make_user):
+    import pytest
 
-    lead_service.save_notes(db, lead, "Hello", other)
-    db.commit()
+    user = make_user()
+    lead = _new_lead(db, user)
 
-    db.refresh(lead)
-    assert lead.notes_updated_by == creator.id
-
-
-def test_stamp_text_is_date_time_and_name_in_brackets():
-    from datetime import datetime
-
-    assert lead_service.stamp_text("Asha", datetime(2026, 11, 2, 9, 5)) == "[02 Nov 09:05 · Asha] "
-    assert lead_service.stamp_text("Vikram Rao", datetime(2026, 1, 31, 18, 45)) == \
-        "[31 Jan 18:45 · Vikram Rao] "
+    with pytest.raises(lead_service.LeadError):
+        lead_service.add_note(db, lead, "   \n ", user)

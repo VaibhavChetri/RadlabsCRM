@@ -4,9 +4,12 @@
 //   Details   every person/company field, edited in a form, "Save changes".
 //   Pipeline  Status, Priority, Owner: each saves as soon as it changes.
 //   Calls     "+1 Call", attempts, Last called, Next follow-up date.
-//   Notes     one box, "Stamp" adds "[DD Mon HH:MM · Name] " at the top.
+//   Notes     a thread, like a chat: each saved note is kept with its
+//             author and time, oldest at the top. Nobody can edit or delete
+//             a note; they go only when the lead is deleted. Whoever owns
+//             the lead next reads the whole story.
 //   Delete    asks first.
-// Every save is a PATCH (or POST /call); the server writes the history.
+// Every save is a PATCH (or a POST); the server writes the history.
 
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -65,13 +68,15 @@ function OpenLink({ url, label }) {
 export default function LeadDetail() {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const notesRef = useRef(null);
+  const threadRef = useRef(null);
 
   const [lead, setLead] = useState(null);
   const [statuses, setStatuses] = useState([]);
   const [owners, setOwners] = useState([]);
   const [form, setForm] = useState(null);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [posting, setPosting] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,21 +85,30 @@ export default function LeadDetail() {
   const showLead = (data) => {
     setLead(data);
     setForm(formFrom(data));
-    setNotes(data.notes ?? '');
   };
 
   useEffect(() => {
-    Promise.all([api.get(`/leads/${uuid}`), api.get('/statuses'), api.get('/owners')])
-      .then(([leadRes, statusRes, ownerRes]) => {
+    Promise.all([
+      api.get(`/leads/${uuid}`), api.get('/statuses'), api.get('/owners'),
+      api.get(`/leads/${uuid}/notes`),
+    ])
+      .then(([leadRes, statusRes, ownerRes, notesRes]) => {
         showLead(leadRes.data);
         setStatuses(statusRes.data);
         setOwners(ownerRes.data);
+        setNotes(notesRes.data);
       })
       .catch((err) => setLoadError(
         err.response?.status === 404 ? 'This lead does not exist (it may have been deleted).'
           : 'Could not load the lead. Is the backend running?',
       ));
   }, [uuid]);
+
+  // Keep the newest note in view, like a chat.
+  useEffect(() => {
+    const box = threadRef.current;
+    if (box) box.scrollTop = box.scrollHeight;
+  }, [notes]);
 
   // Run one save; show the server's answer or its error.
   const save = async (request) => {
@@ -126,7 +140,6 @@ export default function LeadDetail() {
 
   const isDoNotCall = lead.status === DO_NOT_CALL;
   const formDirty = FORM_FIELDS.some((f) => form[f] !== (lead[f] ?? ''));
-  const notesDirty = notes !== (lead.notes ?? '');
   // Keep a deactivated owner visible in the dropdown.
   const ownerOptions = lead.owner_uuid && !owners.some((o) => o.uuid === lead.owner_uuid)
     ? [...owners, { uuid: lead.owner_uuid, name: `${lead.owner} (inactive)` }]
@@ -142,29 +155,30 @@ export default function LeadDetail() {
     patch(changes);
   };
 
-  const handleStamp = async () => {
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!draft.trim()) return;
     setError('');
+    setPosting(true);
     try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await api.get('/leads/stamp', { params: { tz } });
-      const stamp = res.data.text;
-      setNotes((current) => (current ? `${stamp}\n${current}` : stamp));
-      // Put the cursor right after the stamp, ready to type.
-      requestAnimationFrame(() => {
-        const box = notesRef.current;
-        if (box) {
-          box.focus();
-          box.setSelectionRange(stamp.length, stamp.length);
-        }
-      });
+      const res = await api.post(`/leads/${uuid}/notes`, { body: draft });
+      setNotes((current) => [...current, res.data]);
+      setDraft('');
     } catch (err) {
-      setError(errorMessage(err, 'Could not add the stamp.'));
+      setError(errorMessage(err, 'Could not save the note.'));
+    } finally {
+      setPosting(false);
     }
+  };
+
+  // Cmd/Ctrl + Enter saves the note.
+  const handleNoteKey = (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddNote(e);
   };
 
   const handleDelete = async () => {
     const name = fullName(lead) || 'this lead';
-    if (!window.confirm(`Delete ${name}? Their calls and history are deleted too. This cannot be undone.`)) {
+    if (!window.confirm(`Delete ${name}? Their calls, notes and history are deleted too. This cannot be undone.`)) {
       return;
     }
     setBusy(true);
@@ -299,23 +313,28 @@ export default function LeadDetail() {
           <div className="card">
             <div className="card-head">
               <h2>Notes</h2>
-              <button type="button" className="secondary" onClick={handleStamp}>Stamp</button>
+              <span className="muted">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
             </div>
-            <textarea ref={notesRef} rows={8} value={notes}
-              placeholder="What did you learn on the call?"
-              onChange={(e) => setNotes(e.target.value)} />
-            <div className="actions">
-              <button type="button" className="inline" disabled={busy || !notesDirty}
-                onClick={() => patch({ notes })}>
-                Save notes
+            <div className="thread" ref={threadRef}>
+              {notes.length === 0 && (
+                <p className="muted">No notes yet. Write what you learn on each call.</p>
+              )}
+              {notes.map((note, i) => (
+                <div key={i} className="note">
+                  <div className="note-meta">
+                    <strong>{note.author}</strong> · {formatDateTime(note.created_at)}
+                  </div>
+                  <div className="note-body">{note.body}</div>
+                </div>
+              ))}
+            </div>
+            <form onSubmit={handleAddNote}>
+              <textarea rows={3} value={draft} placeholder="Write a note… (Cmd/Ctrl + Enter to save)"
+                onChange={(e) => setDraft(e.target.value)} onKeyDown={handleNoteKey} />
+              <button type="submit" className="inline" disabled={posting || !draft.trim()}>
+                {posting ? 'Saving…' : 'Save note'}
               </button>
-              {notesDirty && <span className="muted">Unsaved changes</span>}
-            </div>
-            <p className="muted">
-              {lead.notes_updated_by
-                ? `Last edited by ${lead.notes_updated_by} at ${formatDateTime(lead.notes_updated_at)}`
-                : 'No notes yet'}
-            </p>
+            </form>
           </div>
 
           <div className="card">

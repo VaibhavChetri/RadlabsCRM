@@ -102,10 +102,6 @@ class Lead(Base):
     last_called_at = Column(DateTime)
     next_follow_up = Column(Date, index=True)
 
-    notes = Column(Text)
-    notes_updated_by = Column(Integer, ForeignKey("users.id"))
-    notes_updated_at = Column(DateTime)
-
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, nullable=False, default=utc_now, index=True)  # "Added to CRM"
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
@@ -113,7 +109,6 @@ class Lead(Base):
     status = relationship("Status")
     owner = relationship("User", foreign_keys=[owner_id])
     creator = relationship("User", foreign_keys=[created_by])
-    notes_editor = relationship("User", foreign_keys=[notes_updated_by])
 
 
 class Call(Base):
@@ -123,6 +118,19 @@ class Call(Base):
     lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     called_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+
+
+class LeadNote(Base):
+    """One entry in a lead's notes thread. Never edited; goes with the lead."""
+    __tablename__ = "lead_notes"
+
+    id = Column(Integer, primary_key=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+
+    author = relationship("User")
 
 
 class StatusChange(Base):

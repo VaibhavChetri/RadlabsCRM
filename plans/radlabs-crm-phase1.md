@@ -16,7 +16,8 @@ Durable decisions that apply across all phases:
 - **Schema**:
   - `users` (uuid, name, email unique, password_hash, role, is_active, created_at)
   - `statuses` (name, sort_order, is_exit), seeded: New, Attempted, Connected, Interested, Meeting booked, Proposal sent, Won, Lost, Not interested, Do not call (last 4 = exit)
-  - `leads` (uuid; first_name, last_name, job_title, email, phone, phone_2, linkedin_url, company, website, industry, company_size, city, country; source; priority hot|warm|cold; status_id; owner_id nullable; call_attempts, last_called_at, next_follow_up; notes, notes_updated_by, notes_updated_at; created_by, created_at, updated_at)
+  - `leads` (uuid; first_name, last_name, job_title, email, phone, phone_2, linkedin_url, company, website, industry, company_size, city, country; source; priority hot|warm|cold; status_id; owner_id nullable; call_attempts, last_called_at, next_follow_up; created_by, created_at, updated_at)
+  - `lead_notes` (lead_id, user_id, body, created_at): the Notes thread, never edited
   - `calls` (lead_id, user_id, called_at)
   - `status_changes` (lead_id, from_status_id nullable, to_status_id, user_id, changed_at)
   - `import_presets` (name unique, mapping JSON, is_builtin)
@@ -25,8 +26,8 @@ Durable decisions that apply across all phases:
 - **Routes**:
   - `POST /auth/login`, `GET /auth/me`
   - `GET/POST /users`, `PATCH /users/{uuid}`, `POST /users/{uuid}/reset-password` (admin)
-  - `GET /statuses`
-  - `GET/POST /leads`, `GET/PATCH/DELETE /leads/{uuid}`, `POST /leads/{uuid}/call`, `POST /leads/bulk`, `GET /leads/today`, `GET /leads/export`
+  - `GET /statuses`, `GET /owners` (active users for Owner dropdowns; any logged-in user)
+  - `GET/POST /leads`, `GET/PATCH/DELETE /leads/{uuid}`, `POST /leads/{uuid}/call`, `GET/POST /leads/{uuid}/notes`, `POST /leads/bulk`, `GET /leads/today`, `GET /leads/export`
   - `POST /imports/preview`, `POST /imports`, `GET /imports`, `GET/POST /imports/presets`
   - `GET /stats/summary?scope=me|team&from&to`, `GET /stats/team?from&to`
 - **Frontend routes**: `/login`, `/` (Home), `/leads`, `/leads/:uuid`, `/import`, `/stats`, `/team`.
@@ -61,7 +62,7 @@ Swap the client-inbox foundation for the CRM foundation and prove one full path 
 
 ### What to build
 
-A full lead page. Every field is shown and editable. Phone shows tap-to-call and a WhatsApp link; LinkedIn and website open in a new tab. Status dropdown with the 10 stages; Priority (Hot/Warm/Cold); Owner dropdown (active users plus "Unassigned"). A call block with "+1 Call" (adds to attempts, sets Last called, writes a `calls` row), the attempts count, Last called, and a Next follow-up date picker. A single Notes box with a "Stamp" button that adds `[DD Mon HH:MM · Name] ` at the top, and "Last edited by X at Y" under it. "Do not call" is clearly marked. Delete asks for confirmation. All writes go through the Lead service, which records status history and the notes editor.
+A full lead page. Every field is shown and editable. Phone shows tap-to-call and a WhatsApp link; LinkedIn and website open in a new tab. Status dropdown with the 10 stages; Priority (Hot/Warm/Cold); Owner dropdown (active users plus "Unassigned"). A call block with "+1 Call" (adds to attempts, sets Last called, writes a `calls` row), the attempts count, Last called, and a Next follow-up date picker. A Notes thread: write a note, save it, and it is kept with the author's name and the time, oldest first like a chat. Notes cannot be edited or deleted; they go only with the lead, so a new owner gets the full story. (Changed on 12 Nov 2026 from the planned single Notes box + Stamp button.) "Do not call" is clearly marked. Delete asks for confirmation. All writes go through the Lead service, which records status history and signs each note.
 
 ### Acceptance criteria
 
@@ -69,10 +70,11 @@ A full lead page. Every field is shown and editable. Phone shows tap-to-call and
 - [x] Status change writes a `status_changes` row with from, to, user and time.
 - [x] "+1 Call" adds 1 to attempts, sets Last called, and writes one `calls` row.
 - [x] The follow-up date saves and clears.
-- [x] Stamp inserts the right text at the top; saving the notes records who edited and when.
+- [x] Saving a note adds it to the thread with author and time; every user sees the whole thread, oldest first.
 - [x] Do-not-call leads show a clear warning badge.
-- [x] Delete needs a confirmation and removes the lead with its calls and history.
-- [x] Lead service tests: +1 call, status history, notes editor, stamp format.
+- [x] `migrate_phase2.py` moves any old Notes box text into the thread and drops the old columns.
+- [x] Delete needs a confirmation and removes the lead with its calls, history and notes.
+- [x] Lead service tests: +1 call, status history, add note (author, time, empty refused).
 
 ---
 

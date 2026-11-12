@@ -112,11 +112,10 @@ class LeadUpdate(_PersonAndCompany):
     status: Optional[str] = None
     owner_uuid: Optional[str] = None  # null = Unassigned
     next_follow_up: Optional[date] = None  # null = no follow-up
-    notes: Optional[str] = None  # kept as typed (not stripped)
 
 
 # LeadOut fields built from relationships, not copied from a column.
-_RELATED_FIELDS = ("status", "owner", "owner_uuid", "notes_updated_by", "created_by")
+_RELATED_FIELDS = ("status", "owner", "owner_uuid", "created_by")
 
 
 class LeadOut(BaseModel):
@@ -142,9 +141,6 @@ class LeadOut(BaseModel):
     call_attempts: int
     last_called_at: Optional[UTCDateTime] = None
     next_follow_up: Optional[date] = None
-    notes: Optional[str] = None
-    notes_updated_by: Optional[str] = None  # editor's name
-    notes_updated_at: Optional[UTCDateTime] = None
     created_by: Optional[str] = None  # creator's name
     created_at: UTCDateTime           # "Added to CRM"
     updated_at: UTCDateTime
@@ -158,7 +154,6 @@ class LeadOut(BaseModel):
             status=lead.status.name,
             owner=lead.owner.name if lead.owner else None,
             owner_uuid=lead.owner.uuid if lead.owner else None,
-            notes_updated_by=lead.notes_editor.name if lead.notes_editor else None,
             created_by=lead.creator.name if lead.creator else None,
         )
 
@@ -166,3 +161,18 @@ class LeadOut(BaseModel):
 class LeadList(BaseModel):
     items: list[LeadOut]
     total: int
+
+
+# ---------- Notes thread ----------
+class NoteCreate(BaseModel):
+    body: str
+
+
+class NoteOut(BaseModel):
+    author: str
+    body: str
+    created_at: UTCDateTime
+
+    @classmethod
+    def from_note(cls, note) -> "NoteOut":
+        return cls(author=note.author.name, body=note.body, created_at=note.created_at)
