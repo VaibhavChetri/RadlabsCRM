@@ -140,6 +140,7 @@ button.secondary:hover { background: #f3f4f6; }
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.stats-row .card { margin-bottom: 0; }
 @media (max-width: 700px) { .stats-row { grid-template-columns: 1fr; } }
 
 .stats-panel { padding: 16px 18px; }
@@ -156,6 +157,34 @@ button.secondary:hover { background: #f3f4f6; }
 .trend { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
 .trend-col { flex: 1; height: 100%; display: flex; align-items: flex-end; }
 .trend-bar { width: 100%; background: var(--primary); border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s; }
+.trend-bar.is-zero { background: var(--border); }
+.trend-axis { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.stats-panel .funnel-label { width: 110px; flex-shrink: 0; }
+.stats-panel .funnel-count { width: 40px; }
+.stats .is-loading { opacity: 0.55; transition: opacity .15s; }
+
+/* Toolbar: Me / Team + period picker */
+.stats-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+.period-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.period-dates { display: inline-flex; align-items: center; gap: 8px; }
+.period-dates input { width: auto; margin-top: 0; padding: 6px 8px; font-size: 13px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card); }
+.segmented button {
+  width: auto; padding: 7px 14px; font-size: 13px; font-weight: 600;
+  background: transparent; color: var(--muted); border-radius: 0;
+}
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button:hover { background: #f3f4f6; color: var(--text); }
+.segmented button.active { background: var(--primary); color: #fff; }
+
+/* Team stats table */
+.team-table .num { text-align: right; }
+.team-table .strong { font-weight: 700; }
+.team-table .col-split { border-left: 1px solid var(--border); }
+.team-table .table-group-row th { text-transform: none; font-weight: 500; padding-top: 0; }
+.team-table tfoot td { font-weight: 700; border-bottom: none; }
+.row-inactive td { color: var(--muted); }
+.small-badge { margin-left: 8px; font-size: 11px; }
 
 /* ----- Table ----- */
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -168,6 +197,10 @@ td { white-space: nowrap; }
 /* ----- Top bar ----- */
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 16px; }
 .brand { font-weight: 700; font-size: 18px; }
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; gap: 10px; }
+  .topbar-left { flex-wrap: wrap; gap: 10px; }
+}
 .nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; }
 .nav a.active { color: var(--primary); }
 .me { font-size: 14px; color: var(--muted); }

@@ -149,12 +149,12 @@ The Stats engine plus two views. Analytics strip on the Home screen: toggles Me 
 
 ### Acceptance criteria
 
-- [ ] Toggles change every number and chart together.
-- [ ] Numbers match a hand-counted seeded dataset for week, month and a custom range.
-- [ ] Moving a lead out of "Won" later does not remove it from "Won" for the past range.
-- [ ] Charts have no missing days.
-- [ ] Team stats includes deactivated users with activity in the range.
-- [ ] Stats engine tests with seeded users, leads, calls and status changes over several weeks.
+- [x] Toggles change every number and chart together.
+- [x] Numbers match a hand-counted seeded dataset for week, month and a custom range.
+- [x] Moving a lead out of "Won" later does not remove it from "Won" for the past range.
+- [x] Charts have no missing days.
+- [x] Team stats includes deactivated users with activity in the range.
+- [x] Stats engine tests with seeded users, leads, calls and status changes over several weeks.
 
 ---
 

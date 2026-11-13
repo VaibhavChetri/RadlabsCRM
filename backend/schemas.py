@@ -272,3 +272,54 @@ class ImportOut(BaseModel):
         return cls(file_name=record.file_name, source=record.source, user=record.user.name,
                    added=record.added, updated=record.updated, skipped=record.skipped,
                    created_at=record.created_at)
+
+
+# ---------- Stats ----------
+class StatsCards(BaseModel):
+    total_leads: int
+    leads_added: int
+    calls: int
+    follow_ups_due: int
+    meetings_booked: int
+    won: int
+    conversion_pct: Optional[float]  # None when no leads were added in the period
+
+
+class DayCount(BaseModel):
+    date: date  # the user's local date
+    count: int
+
+
+class FunnelStage(BaseModel):
+    status: str
+    is_exit: bool
+    count: int
+
+
+class SourceCount(BaseModel):
+    source: str
+    count: int
+
+
+class StatsSummary(BaseModel):
+    cards: StatsCards
+    funnel: list[FunnelStage]          # all 10 stages, pipeline order
+    calls_per_day: list[DayCount]      # every day of the period, 0 when none
+    added_per_day: list[DayCount]
+    by_source: list[SourceCount]       # every source
+
+
+class TeamRow(BaseModel):
+    uuid: str
+    name: str
+    is_active: bool
+    calls: int
+    meetings_booked: int
+    won: int
+    leads: int                    # leads they own now
+    by_status: dict[str, int]     # those leads by current status
+
+
+class TeamStats(BaseModel):
+    statuses: list[str]  # column order
+    rows: list[TeamRow]

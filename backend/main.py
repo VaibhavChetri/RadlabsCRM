@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import FRONTEND_ORIGINS
-from routes import auth, imports, leads, lookups
+from routes import auth, imports, leads, lookups, stats
 
 app = FastAPI(title="Radlabs CRM", version="2.0.0")
 
@@ -27,6 +27,7 @@ app.include_router(auth.router)
 app.include_router(leads.router)
 app.include_router(lookups.router)
 app.include_router(imports.router)
+app.include_router(stats.router)
 
 
 @app.get("/")

@@ -86,3 +86,30 @@ export const IMPORT_FIELDS = [
   ['country', 'Country'],
 ];
 export const IMPORT_FIELD_LABELS = Object.fromEntries(IMPORT_FIELDS);
+
+// ---------- Stats periods ----------
+// Ranges of local dates, both ends included. A week runs Monday to Sunday.
+export const PERIOD_PRESETS = [['week', 'This week'], ['month', 'This month'], ['custom', 'Custom']];
+
+export function presetRange(preset, now = new Date()) {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  if (preset === 'month') {
+    return { from: localDateISO(new Date(y, m, 1)), to: localDateISO(new Date(y, m + 1, 0)) };
+  }
+  const sinceMonday = (now.getDay() + 6) % 7;
+  const monday = new Date(y, m, now.getDate() - sinceMonday);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  return { from: localDateISO(monday), to: localDateISO(sunday) };
+}
+
+// A period as the PeriodPicker holds it: { preset, from, to }.
+export function initialPeriod(preset = 'week') {
+  return { preset, ...presetRange(preset) };
+}
+
+// "2026-11-02" -> "2 Nov" (short label under a chart).
+export function formatDayShort(value) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}

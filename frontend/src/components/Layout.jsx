@@ -31,6 +31,7 @@ export default function Layout() {
             <NavLink to="/" end>My calls</NavLink>
             <NavLink to="/leads">All leads</NavLink>
             <NavLink to="/import">Import</NavLink>
+            <NavLink to="/stats">Team stats</NavLink>
           </nav>
         </div>
         <div className="topbar-right">

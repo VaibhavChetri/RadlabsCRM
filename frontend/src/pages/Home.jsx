@@ -7,11 +7,12 @@
 // Won / Lost / Not interested / Do not call never show here.
 // Each row has +1 Call and a status dropdown; after either, the list reloads
 // (a lead may move to another section or leave the list).
-// The analytics strip (Phase 6) goes above the list.
+// The analytics strip (Me / Team, This week / This month / Custom) sits above the list.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import AnalyticsStrip from '../components/AnalyticsStrip';
 import {
   PRIORITY_LABELS, errorMessage, formatDate, formatDateTime, fullName, localDateISO,
 } from '../format';
@@ -64,6 +65,7 @@ export default function Home() {
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [busyUuid, setBusyUuid] = useState(null);
+  const [statsKey, setStatsKey] = useState(0); // bump to reload the analytics strip
 
   // "Today" is the caller's local date, not the server's.
   const loadList = useCallback(
@@ -84,6 +86,7 @@ export default function Home() {
     try {
       await request();
       await loadList();
+      setStatsKey((k) => k + 1);
     } catch (err) {
       setError(errorMessage(err, 'Could not save. Please try again.'));
     } finally {
@@ -101,7 +104,7 @@ export default function Home() {
 
   return (
     <>
-      {/* Phase 6: analytics strip goes here. */}
+      <AnalyticsStrip refreshKey={statsKey} />
 
       <div className="lead-head">
         <div>
