@@ -5,19 +5,22 @@
 //   Filters    status, owner (incl. Unassigned), source, priority, date added.
 //   Sort       click a column title; click again to flip the order.
 //   Pages      50 leads per page, with the total count.
-//   Bulk       tick leads, then set status / owner / priority, or delete (asks first).
+//   Bulk       tick leads, then set status / owner / priority, or delete (admin only, asks first).
 //              The server changes them all or none, and writes history for each.
 //   Export     the current filtered list (every page) as .xlsx, with notes.
 //   Import     "Import file" opens the import wizard (/import).
 // Filters, sort and page live in the URL, so a view can be shared or reloaded.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import AddLeadForm from '../components/AddLeadForm';
+import Button from '../components/Button';
+import { buttonClass } from '../components/buttonClass';
+import Icon from '../components/Icon';
 import { saveDownload } from '../download';
 import {
-  DO_NOT_CALL, PRIORITIES, PRIORITY_LABELS, SOURCES, errorMessage, formatDate, formatDateTime,
+  DO_NOT_CALL, PRIORITIES, PRIORITY_LABELS, SOURCES, errorMessage, formatDate, formatShortDateTime,
   fullName, tzOffsetMinutes,
 } from '../format';
 
@@ -52,6 +55,8 @@ function SortHeader({ label, sortKey, sort, order, onSort }) {
 }
 
 export default function Leads() {
+  const { me } = useOutletContext();
+  const isAdmin = me?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const query = apiQuery(searchParams);
@@ -212,14 +217,17 @@ export default function Leads() {
           </p>
         </div>
         <div className="actions">
-          <button type="button" className="secondary" onClick={handleExport}
-            disabled={exporting || data.total === 0}>
+          <Button variant="outline" icon="download" onClick={handleExport}
+            loading={exporting} disabled={data.total === 0}>
             {exporting ? 'Exporting…' : 'Export to Excel'}
-          </button>
-          <Link className="button-link secondary" to="/import">Import file</Link>
-          <button type="button" className="inline" onClick={() => setShowAdd((v) => !v)}>
-            {showAdd ? 'Close' : '+ Add lead'}
-          </button>
+          </Button>
+          <Link className={buttonClass({ variant: 'outline' })} to="/import">
+            <Icon name="upload" />Import file
+          </Link>
+          <Button variant={showAdd ? 'outline' : 'primary'} icon={showAdd ? 'x' : 'plus'}
+            onClick={() => setShowAdd((v) => !v)}>
+            {showAdd ? 'Close' : 'Add lead'}
+          </Button>
         </div>
       </div>
 
@@ -277,7 +285,7 @@ export default function Leads() {
           </label>
         </div>
         {hasFilters && (
-          <button type="button" className="link-btn" onClick={clearFilters}>Clear filters</button>
+          <Button variant="link" onClick={clearFilters}>Clear filters</Button>
         )}
       </div>
 
@@ -303,13 +311,14 @@ export default function Leads() {
             <option value="">Set priority…</option>
             {PRIORITIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-          <button type="button" className="danger compact" disabled={busy} onClick={bulkDelete}>
-            Delete
-          </button>
-          <button type="button" className="link-btn" disabled={busy}
-            onClick={() => setSelected(NO_SELECTION)}>
+          {isAdmin && (
+            <Button variant="danger" size="sm" icon="trash" disabled={busy} onClick={bulkDelete}>
+              Delete
+            </Button>
+          )}
+          <Button variant="link" disabled={busy} onClick={() => setSelected(NO_SELECTION)}>
             Clear selection
-          </button>
+          </Button>
         </div>
       )}
 
@@ -324,16 +333,15 @@ export default function Leads() {
 
         {!loadError && data.items.length > 0 && (
           <div className={loading ? 'table-wrap is-loading' : 'table-wrap'}>
-            <table>
+            <table className="leads-table">
               <thead>
                 <tr>
                   <th className="check-col">
                     <input type="checkbox" aria-label="Select all on this page"
                       checked={allOnPage} onChange={toggleAll} />
                   </th>
-                  <th>Name</th>
+                  <th>Name / email</th>
                   <SortHeader label="Company" sortKey="company" sort={sort} order={order} onSort={handleSort} />
-                  <th>Email</th>
                   <th>Phone</th>
                   <th>Status</th>
                   <SortHeader label="Priority" sortKey="priority" sort={sort} order={order} onSort={handleSort} />
@@ -342,7 +350,6 @@ export default function Leads() {
                   <SortHeader label="Last called" sortKey="last_called" sort={sort} order={order} onSort={handleSort} />
                   <SortHeader label="Follow-up" sortKey="follow_up" sort={sort} order={order} onSort={handleSort} />
                   <SortHeader label="Added to CRM" sortKey="added" sort={sort} order={order} onSort={handleSort} />
-                  <th>Added by</th>
                 </tr>
               </thead>
               <tbody>
@@ -352,9 +359,11 @@ export default function Leads() {
                       <input type="checkbox" aria-label={`Select ${fullName(lead)}`}
                         checked={selected.has(lead.uuid)} onChange={() => toggle(lead.uuid)} />
                     </td>
-                    <td><Link to={`/leads/${lead.uuid}`}>{fullName(lead) || 'Unnamed lead'}</Link></td>
+                    <td>
+                      <Link to={`/leads/${lead.uuid}`}>{fullName(lead) || 'Unnamed lead'}</Link>
+                      {lead.email && <div className="muted small">{lead.email}</div>}
+                    </td>
                     <td>{lead.company}</td>
-                    <td>{lead.email}</td>
                     <td>{lead.phone}</td>
                     <td>
                       <span className={lead.status === DO_NOT_CALL ? 'badge danger' : 'badge'}>
@@ -364,10 +373,12 @@ export default function Leads() {
                     <td><span className={`badge priority-${lead.priority}`}>{PRIORITY_LABELS[lead.priority]}</span></td>
                     <td>{lead.owner || <span className="muted">Unassigned</span>}</td>
                     <td>{lead.call_attempts}</td>
-                    <td>{lead.last_called_at ? formatDateTime(lead.last_called_at) : <span className="muted">Never</span>}</td>
+                    <td>{lead.last_called_at ? formatShortDateTime(lead.last_called_at) : <span className="muted">Never</span>}</td>
                     <td>{lead.next_follow_up ? formatDate(lead.next_follow_up) : <span className="muted">None</span>}</td>
-                    <td>{formatDateTime(lead.created_at)}</td>
-                    <td>{lead.created_by}</td>
+                    <td>
+                      {formatShortDateTime(lead.created_at)}
+                      {lead.created_by && <div className="muted small">by {lead.created_by}</div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -379,15 +390,15 @@ export default function Leads() {
           <div className="pager">
             <span className="muted">Showing {first}–{last} of {data.total}</span>
             <span className="input-row">
-              <button type="button" className="secondary compact" disabled={page <= 1}
+              <Button variant="outline" size="sm" icon="chevronLeft" disabled={page <= 1}
                 onClick={() => updateParams({ page: String(page - 1) })}>
-                ← Previous
-              </button>
+                Previous
+              </Button>
               <span className="muted">Page {page} of {pages}</span>
-              <button type="button" className="secondary compact" disabled={page >= pages}
+              <Button variant="outline" size="sm" iconAfter="chevronRight" disabled={page >= pages}
                 onClick={() => updateParams({ page: String(page + 1) })}>
-                Next →
-              </button>
+                Next
+              </Button>
             </span>
           </div>
         )}

@@ -8,13 +8,16 @@
 // Each row has +1 Call and a status dropdown; after either, the list reloads
 // (a lead may move to another section or leave the list).
 // The analytics strip (Me / Team, This week / This month / Custom) sits above the list.
+// Below the call list, "My leads": every lead I own, any status, newest first
+// (first MY_LEADS_SHOWN; the link opens the full list in All leads).
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import api from '../api';
 import AnalyticsStrip from '../components/AnalyticsStrip';
+import Button from '../components/Button';
 import {
-  PRIORITY_LABELS, errorMessage, formatDate, formatDateTime, fullName, localDateISO,
+  PRIORITY_LABELS, errorMessage, formatDate, formatShortDateTime, fullName, localDateISO,
 } from '../format';
 
 const SECTIONS = [
@@ -23,36 +26,55 @@ const SECTIONS = [
   ['new', 'New leads', 'No new leads assigned to you.'],
 ];
 
+const MY_LEADS_SHOWN = 50;
+
+const TABLE_HEAD = (
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Company</th>
+      <th>Phone</th>
+      <th>Priority</th>
+      <th>Status</th>
+      <th>Calls</th>
+      <th>Last called</th>
+      <th>Follow-up</th>
+    </tr>
+  </thead>
+);
+
 function CallRow({ lead, statuses, overdue, busy, onCall, onStatus }) {
   return (
     <tr className={overdue ? 'row-overdue' : undefined}>
-      <td>
+      <td className="cell-title">
         <Link to={`/leads/${lead.uuid}`}>{fullName(lead) || 'Unnamed lead'}</Link>
         {lead.job_title && <div className="muted small">{lead.job_title}</div>}
       </td>
-      <td>{lead.company}</td>
-      <td>
+      <td data-label="Company">{lead.company || <span className="muted">—</span>}</td>
+      <td data-label="Phone">
         {lead.phone
           ? <a href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>{lead.phone}</a>
           : <span className="muted">No phone</span>}
       </td>
-      <td><span className={`badge priority-${lead.priority}`}>{PRIORITY_LABELS[lead.priority]}</span></td>
-      <td>
+      <td data-label="Priority"><span className={`badge priority-${lead.priority}`}>{PRIORITY_LABELS[lead.priority]}</span></td>
+      <td data-label="Status">
         <select className="compact" value={lead.status} disabled={busy}
           onChange={(e) => onStatus(lead, e.target.value)}>
           {statuses.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
         </select>
       </td>
-      <td>
+      <td data-label="Calls">
         <span className="input-row">
-          <button type="button" className="inline compact" disabled={busy} onClick={() => onCall(lead)}>
+          <Button variant="call" size="sm" icon="phone" loading={busy} onClick={() => onCall(lead)}>
             +1 Call
-          </button>
+          </Button>
           <span className="muted">{lead.call_attempts}</span>
         </span>
       </td>
-      <td className="muted">{lead.last_called_at ? formatDateTime(lead.last_called_at) : 'Never'}</td>
-      <td className={overdue ? 'overdue-date' : undefined}>
+      <td data-label="Last called" className="muted">
+        {lead.last_called_at ? formatShortDateTime(lead.last_called_at) : 'Never'}
+      </td>
+      <td data-label="Follow-up" className={overdue ? 'overdue-date' : undefined}>
         {lead.next_follow_up ? formatDate(lead.next_follow_up) : <span className="muted">None</span>}
       </td>
     </tr>
@@ -60,7 +82,9 @@ function CallRow({ lead, statuses, overdue, busy, onCall, onStatus }) {
 }
 
 export default function Home() {
+  const { me } = useOutletContext();
   const [sections, setSections] = useState(null);
+  const [myLeads, setMyLeads] = useState(null); // { items, total }
   const [statuses, setStatuses] = useState([]);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
@@ -74,6 +98,18 @@ export default function Home() {
     [],
   );
 
+  const myUuid = me?.uuid;
+  const loadMine = useCallback(() => {
+    if (!myUuid) return Promise.resolve();
+    return api.get('/leads', {
+      params: { owner: myUuid, sort: 'added', order: 'desc', page_size: MY_LEADS_SHOWN },
+    }).then((res) => setMyLeads(res.data));
+  }, [myUuid]);
+
+  useEffect(() => {
+    loadMine().catch(() => setLoadError('Could not load your leads. Is the backend running?'));
+  }, [loadMine]);
+
   useEffect(() => {
     Promise.all([loadList(), api.get('/statuses').then((res) => setStatuses(res.data))])
       .catch(() => setLoadError('Could not load your call list. Is the backend running?'));
@@ -85,7 +121,7 @@ export default function Home() {
     setBusyUuid(lead.uuid);
     try {
       await request();
-      await loadList();
+      await Promise.all([loadList(), loadMine()]);
       setStatsKey((k) => k + 1);
     } catch (err) {
       setError(errorMessage(err, 'Could not save. Please try again.'));
@@ -129,19 +165,8 @@ export default function Home() {
             <p className="muted">{emptyText}</p>
           ) : (
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Company</th>
-                    <th>Phone</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Calls</th>
-                    <th>Last called</th>
-                    <th>Follow-up</th>
-                  </tr>
-                </thead>
+              <table className="stack-table">
+                {TABLE_HEAD}
                 <tbody>
                   {sections[key].map((lead) => (
                     <CallRow key={lead.uuid} lead={lead} statuses={statuses}
@@ -154,6 +179,40 @@ export default function Home() {
           )}
         </div>
       ))}
+
+      <div className="card">
+        <div className="card-head">
+          <h2>My leads</h2>
+          <span className="muted">{myLeads ? myLeads.total : ''}</span>
+        </div>
+        <p className="muted small">Every lead you own, any status, newest first.</p>
+        {!myLeads ? (
+          <p className="muted">Loading your leads…</p>
+        ) : myLeads.total === 0 ? (
+          <p className="muted">You do not own any leads yet.</p>
+        ) : (
+          <>
+            <div className="table-wrap">
+              <table className="stack-table">
+                {TABLE_HEAD}
+                <tbody>
+                  {myLeads.items.map((lead) => (
+                    <CallRow key={lead.uuid} lead={lead} statuses={statuses}
+                      overdue={false} busy={busyUuid === lead.uuid}
+                      onCall={handleCall} onStatus={handleStatus} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {myLeads.total > myLeads.items.length && (
+              <p className="muted small">
+                Showing the newest {myLeads.items.length} of {myLeads.total}.{' '}
+                <Link to={`/leads?owner=${myUuid}`}>See all my leads in All leads →</Link>
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </>
   );
 }

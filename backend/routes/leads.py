@@ -10,15 +10,16 @@ GET    /leads          the All-leads table -> { items, total }
                        &status= &owner= (uuid | unassigned) &source= &priority=
                          (repeat a filter for "any of these")
                        &added_from= &added_to= (local dates) &tz_offset= (minutes, IST = 330)
+                       &import= (import uuid: only the leads that import added)
                        &sort= added | last_called | follow_up | priority | company
                        &order= asc | desc &page= (from 1) &page_size= (max 200)
 GET    /leads/export   same filters and sort, every row, as .xlsx (incl. notes)
 POST   /leads/bulk     { uuids, action: update | delete, changes: {status, owner_uuid, priority} }
-                       all or nothing -> { count }
+                       all or nothing -> { count }. Delete is admin only (403).
 GET    /leads/today?today=YYYY-MM-DD   my call list -> { overdue, due_today, new }
 GET    /leads/{uuid}        one lead with every field
 PATCH  /leads/{uuid}        edit fields, status, owner, follow-up
-DELETE /leads/{uuid}        delete (calls and history go with it)
+DELETE /leads/{uuid}        delete, admin only (calls, notes and history go with it)
 POST   /leads/{uuid}/call   +1 Call
 GET    /leads/{uuid}/notes  notes thread, newest first
 POST   /leads/{uuid}/notes  add a note (signed with my name and the time)
@@ -76,12 +77,15 @@ def lead_filters(
     added_to: date | None = None,
     tz_offset: int = Query(default=0, ge=-14 * 60, le=14 * 60,
                            description="local time minus UTC, in minutes (IST = 330)"),
+    import_uuid: str | None = Query(default=None, alias="import",
+                                    description="only the leads this import added"),
 ) -> lead_query.LeadFilters:
     """Query-string filters shared by the table and its Excel export.
     A filter given several times (?status=New&status=Won) means any of them."""
     return lead_query.LeadFilters(
         q=q, statuses=status, sources=source, priorities=priority, owners=owner,
         added_from=added_from, added_to=added_to, tz_offset=tz_offset,
+        import_uuid=import_uuid,
     )
 
 
@@ -129,6 +133,14 @@ def export_leads(
     )
 
 
+def _require_admin_to_delete(user: User) -> None:
+    """Deleting removes calls, notes and history, so past stats change. Admin only;
+    members close a lead with a status (Lost, Not interested) instead."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only the admin can delete leads")
+
+
 @router.post("/bulk", response_model=BulkResult)
 def bulk_action(
     payload: BulkRequest,
@@ -136,7 +148,9 @@ def bulk_action(
     db: Session = Depends(get_db),
 ):
     """Set status / owner / priority on many leads, or delete them. All or nothing.
-    The UI asks for confirmation before a bulk delete."""
+    The UI asks for confirmation before a bulk delete. Delete is admin only."""
+    if payload.action == "delete":
+        _require_admin_to_delete(user)
     uuids = set(payload.uuids)
     leads = db.query(Lead).filter(Lead.uuid.in_(uuids)).all()
     if len(leads) < len(uuids):
@@ -226,6 +240,7 @@ def delete_lead(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _require_admin_to_delete(user)
     lead_service.delete_lead(db, _get_lead_or_404(db, lead_uuid))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

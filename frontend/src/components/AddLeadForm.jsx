@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import api from '../api';
+import Button from './Button';
 import { errorMessage } from '../format';
 
 const EMPTY = { first_name: '', last_name: '', company: '', email: '', phone: '' };
@@ -69,14 +70,14 @@ export default function AddLeadForm({ onAdded, onOpenExisting }) {
       {existing && (
         <div className="error">
           {existing.name || 'This person'} is already in the CRM.{' '}
-          <button type="button" className="link-btn" onClick={() => onOpenExisting(existing.lead_uuid)}>
+          <Button variant="link" onClick={() => onOpenExisting(existing.lead_uuid)}>
             Open the existing lead
-          </button>
+          </Button>
         </div>
       )}
-      <button type="submit" className="inline" disabled={saving}>
+      <Button type="submit" icon="plus" loading={saving}>
         {saving ? 'Adding…' : 'Add lead'}
-      </button>
+      </Button>
     </form>
   );
 }

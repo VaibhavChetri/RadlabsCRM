@@ -155,6 +155,8 @@ class RowResult:
     result: str  # added | updated | skipped
     reason: str = ""
     values: list[str] = field(default_factory=list)  # the row as in the file
+    name: str = ""  # the person's name as mapped ("" when the row has none)
+    filled: list[str] = field(default_factory=list)  # updated rows: CRM fields filled in
 
 
 @dataclass
@@ -281,9 +283,11 @@ def build_plan(db: Session, data: FileData, mapping: dict) -> ImportPlan:
     entries: list[_Entry] = []
     entry_for_lead: dict[int, int] = {}
     outcome: dict[int, RowResult] = {}  # rows decided now; entry rows decided at the end
+    names: dict[int, str] = {}
 
     for number, cells in data.rows:
         fields = clean(map_row(data.headers, cells, mapping))
+        names[number] = " ".join(filter(None, [fields.get("first_name"), fields.get("last_name")]))
         if not has_contact(fields):
             outcome[number] = RowResult(number, "skipped", "no contact info")
             continue
@@ -317,6 +321,7 @@ def build_plan(db: Session, data: FileData, mapping: dict) -> ImportPlan:
             _plan_update(db, plan, entry, outcome)
     for number, cells in data.rows:
         outcome[number].values = cells
+        outcome[number].name = names[number]
     plan.results = [outcome[number] for number in sorted(outcome)]
     return plan
 
@@ -325,7 +330,7 @@ def _plan_update(db: Session, plan: ImportPlan, entry: _Entry, outcome: dict) ->
     fills = fields_to_fill(db.get(Lead, entry.lead_id), entry.fields)
     if fills:
         plan.updates[entry.lead_id] = (entry.row, fills)
-        outcome[entry.row] = RowResult(entry.row, "updated")
+        outcome[entry.row] = RowResult(entry.row, "updated", filled=list(fills))
     else:
         outcome[entry.row] = RowResult(entry.row, "skipped", "already in CRM, nothing new")
 
@@ -359,19 +364,21 @@ def _row_errors(row: int):
 
 def apply_plan(db: Session, plan: ImportPlan, data: FileData, source: str,
                owners: list[User | None], user: User) -> Import:
-    """Write the plan in the caller's transaction. New leads take `owners` in turn."""
-    for turn, (row, fields) in enumerate(plan.creates):
-        owner = owners[turn % len(owners)]
-        with _row_errors(row):
-            lead_service.create_lead(db, {**fields, "source": source}, user, owner=owner)
-    for lead_id, (row, fills) in plan.updates.items():
-        with _row_errors(row):
-            lead_service.update_lead(db, db.get(Lead, lead_id), fills, user)
+    """Write the plan in the caller's transaction. New leads take `owners` in turn
+    and remember this import, so "the leads this import added" can be listed."""
     counts = {result: sum(r.result == result for r in plan.results)
               for result in ("added", "updated", "skipped")}
     record = Import(user_id=user.id, file_name=data.file_name, source=source, **counts)
     db.add(record)
-    db.flush()
+    db.flush()  # gets record.id for the new leads
+    for turn, (row, fields) in enumerate(plan.creates):
+        owner = owners[turn % len(owners)]
+        with _row_errors(row):
+            lead_service.create_lead(db, {**fields, "source": source, "import_id": record.id},
+                                     user, owner=owner)
+    for lead_id, (row, fills) in plan.updates.items():
+        with _row_errors(row):
+            lead_service.update_lead(db, db.get(Lead, lead_id), fills, user)
     return record
 
 

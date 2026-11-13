@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Button from '../components/Button';
 import api, { TOKEN_KEY } from '../api';
 
 export default function Login() {
@@ -63,9 +64,9 @@ export default function Login() {
 
         {error && <div className="error">{error}</div>}
 
-        <button type="submit" disabled={loading}>
+        <Button type="submit" size="lg" block icon="logIn" loading={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
-        </button>
+        </Button>
       </form>
     </div>
   );

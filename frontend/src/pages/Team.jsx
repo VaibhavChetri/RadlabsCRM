@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import api from '../api';
+import Button from '../components/Button';
 import { errorMessage, formatDate, localDateISO } from '../format';
 
 const EMPTY_USER = { name: '', email: '', password: '', role: 'member' };
@@ -102,7 +103,7 @@ export default function Team() {
       {users && (
         <div className="card">
           <div className="table-wrap">
-            <table className="team-admin-table">
+            <table className="team-admin-table stack-table">
               <thead>
                 <tr>
                   <th>Person</th>
@@ -152,13 +153,13 @@ function UserRows({ user, isMe, open, targets, onRole, onToggleActive, onPanel, 
   return (
     <>
       <tr className={user.is_active ? undefined : 'row-inactive'}>
-        <td>
+        <td className="cell-title">
           {user.name}
           {isMe && <span className="badge small-badge">You</span>}
           {!user.is_active && <span className="badge small-badge">Deactivated</span>}
         </td>
-        <td>{user.email}</td>
-        <td>
+        <td data-label="Email">{user.email}</td>
+        <td data-label="Role">
           <select
             className="compact"
             value={user.role}
@@ -170,22 +171,28 @@ function UserRows({ user, isMe, open, targets, onRole, onToggleActive, onPanel, 
             <option value="admin">Admin</option>
           </select>
         </td>
-        <td className="num">{user.leads}</td>
-        <td>{formatDate(localDateISO(new Date(user.created_at)))}</td>
-        <td>
+        <td data-label="Leads owned" className="num">{user.leads}</td>
+        <td data-label="Added">{formatDate(localDateISO(new Date(user.created_at)))}</td>
+        <td data-label="Actions" className="cell-wide">
           <div className="row-actions">
-            <button type="button" className="link-btn" onClick={() => onPanel('reset')}>
+            <Button variant="ghost" size="sm" icon="key" collapse title="Reset password"
+              aria-expanded={open === 'reset'}
+              onClick={() => onPanel('reset')}>
               Reset password
-            </button>
+            </Button>
             {user.leads > 0 && (
-              <button type="button" className="link-btn" onClick={() => onPanel('reassign')}>
+              <Button variant="ghost" size="sm" icon="swap" collapse title="Reassign leads"
+                aria-expanded={open === 'reassign'}
+                onClick={() => onPanel('reassign')}>
                 Reassign leads
-              </button>
+              </Button>
             )}
             {!isMe && (
-              <button type="button" className="link-btn" onClick={onToggleActive}>
+              <Button variant={user.is_active ? 'danger-ghost' : 'ghost'} size="sm"
+                icon={user.is_active ? 'userX' : 'userCheck'} collapse
+                title={user.is_active ? 'Deactivate' : 'Reactivate'} onClick={onToggleActive}>
                 {user.is_active ? 'Deactivate' : 'Reactivate'}
-              </button>
+              </Button>
             )}
           </div>
         </td>
@@ -259,9 +266,9 @@ function AddUserForm({ onAdded }) {
         </label>
       </div>
       {error && <div className="error">{error}</div>}
-      <button type="submit" className="inline" disabled={saving}>
+      <Button type="submit" icon="userPlus" loading={saving}>
         {saving ? 'Adding…' : 'Add team member'}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -285,7 +292,7 @@ function ResetPasswordForm({ name, onSubmit }) {
           placeholder="At least 8 characters"
         />
       </label>
-      <button type="submit" className="inline">Reset password</button>
+      <Button type="submit" icon="key">Reset password</Button>
     </form>
   );
 }
@@ -310,7 +317,7 @@ function ReassignForm({ user, targets, onSubmit }) {
           <option value={UNASSIGNED}>Unassigned</option>
         </select>
       </label>
-      <button type="submit" className="inline">Reassign leads</button>
+      <Button type="submit" icon="swap">Reassign leads</Button>
     </form>
   );
 }

@@ -471,3 +471,39 @@ def test_report_downloads_as_xlsx_with_the_original_rows(client, auth_headers):
         [2, "added", None, "Ravi Kumar", "ravi@acme.com"],
         [3, "skipped", "no contact info", "No Contact", None],
     ]
+
+
+def test_report_rows_name_the_person_and_list_the_fields_filled(client, auth_headers):
+    headers = auth_headers()
+    _run_import(client, headers, b"Name,Email\nRavi Kumar,ravi@acme.com\n",
+                {"Name": "full_name", "Email": "email"})
+    csv_file = (b"Name,Email,Phone,City\n"
+                b"Ravi Kumar,ravi@acme.com,9876543210,Pune\n"
+                b"Meera Shah,meera@globex.io,,\n"
+                b"No Contact,,,Delhi\n")
+
+    res = _run_import(client, headers, csv_file,
+                      {"Name": "full_name", "Email": "email", "Phone": "phone", "City": "city"})
+
+    rows = {r["row"]: r for r in res.json()["rows"]}
+    assert (rows[2]["result"], rows[2]["name"], rows[2]["filled"]) == ("updated", "Ravi Kumar", ["phone", "city"])
+    assert (rows[3]["result"], rows[3]["name"], rows[3]["filled"]) == ("added", "Meera Shah", [])
+    assert (rows[4]["result"], rows[4]["name"]) == ("skipped", "No Contact")
+
+
+def test_leads_can_be_filtered_to_the_ones_one_import_added(client, auth_headers):
+    headers = auth_headers()
+    client.post("/leads", headers=headers, json={"first_name": "Old", "email": "old@acme.com"})
+    _run_import(client, headers, b"Name,Email\nFirst Run,first@acme.com\n",
+                {"Name": "full_name", "Email": "email"})
+    csv_file = (b"Name,Email,City\n"
+                b"Ravi Kumar,ravi@acme.com,\n"
+                b"Meera Shah,meera@globex.io,\n"
+                b"Old Lead,old@acme.com,Pune\n")  # existing lead: updated, not added
+
+    report = _run_import(client, headers, csv_file,
+                         {"Name": "full_name", "Email": "email", "City": "city"}).json()
+
+    res = client.get("/leads", params={"import": report["import_uuid"]}, headers=headers)
+    assert res.status_code == 200, res.text
+    assert sorted(l["first_name"] for l in res.json()["items"]) == ["Meera", "Ravi"]

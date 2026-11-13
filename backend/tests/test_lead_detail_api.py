@@ -156,7 +156,7 @@ def test_patch_next_follow_up_saves_and_clears(client, auth_headers):
 def test_delete_removes_the_lead_with_its_calls_history_and_notes(client, auth_headers, db):
     from models import Call, Lead, LeadNote, StatusChange
 
-    headers = auth_headers()
+    headers = auth_headers(role="admin")
     lead = _add_lead(client, headers)
     client.post(f"/leads/{lead['uuid']}/call", headers=headers)
     client.patch(f"/leads/{lead['uuid']}", json={"status": "Attempted"}, headers=headers)
@@ -239,3 +239,16 @@ def test_an_empty_note_is_422(client, auth_headers):
     res = client.post(f"/leads/{lead['uuid']}/notes", json={"body": "  "}, headers=headers)
 
     assert res.status_code == 422
+
+
+def test_only_an_admin_can_delete_leads(client, auth_headers):
+    member = auth_headers(name="Asha", email="asha@example.com", role="member")
+    lead = _add_lead(client, member)
+
+    one = client.delete(f"/leads/{lead['uuid']}", headers=member)
+    bulk = client.post("/leads/bulk", json={"uuids": [lead["uuid"]], "action": "delete"},
+                       headers=member)
+
+    assert (one.status_code, bulk.status_code) == (403, 403)
+    assert one.json()["detail"] == "Only the admin can delete leads"
+    assert client.get(f"/leads/{lead['uuid']}", headers=member).status_code == 200

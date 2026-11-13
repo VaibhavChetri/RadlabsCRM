@@ -109,3 +109,67 @@ def test_an_empty_note_is_refused(db, make_user):
 
     with pytest.raises(lead_service.LeadError):
         lead_service.add_note(db, lead, "   \n ", user)
+
+
+# ---------- Priority follows the status ----------
+import pytest
+
+
+@pytest.mark.parametrize("status", ["Interested", "Meeting booked", "Proposal sent"])
+def test_showing_interest_makes_the_lead_hot(db, make_user, status):
+    user = make_user()
+    lead = _new_lead(db, user, priority="cold")
+
+    lead_service.change_status(db, lead, status, user)
+    db.commit()
+
+    db.refresh(lead)
+    assert lead.priority == "hot"
+
+
+@pytest.mark.parametrize("status", ["Won", "Lost", "Not interested", "Do not call"])
+def test_a_closed_lead_becomes_cold(db, make_user, status):
+    user = make_user()
+    lead = _new_lead(db, user, priority="hot")
+
+    lead_service.change_status(db, lead, status, user)
+    db.commit()
+
+    db.refresh(lead)
+    assert lead.priority == "cold"
+
+
+@pytest.mark.parametrize("before, after", [("cold", "warm"), ("warm", "warm"), ("hot", "hot")])
+def test_connected_makes_the_lead_at_least_warm(db, make_user, before, after):
+    user = make_user()
+    lead = _new_lead(db, user, priority=before)
+
+    lead_service.change_status(db, lead, "Connected", user)
+    db.commit()
+
+    db.refresh(lead)
+    assert lead.priority == after
+
+
+@pytest.mark.parametrize("status", ["Attempted", "New"])
+def test_no_conversation_yet_keeps_the_priority(db, make_user, status):
+    user = make_user()
+    lead = _new_lead(db, user, priority="hot")
+    lead_service.change_status(db, lead, "Attempted", user)  # so "New" is a real move back
+
+    lead_service.change_status(db, lead, status, user)
+    db.commit()
+
+    db.refresh(lead)
+    assert lead.priority == "hot"
+
+
+def test_a_priority_chosen_in_the_same_edit_wins(db, make_user):
+    user = make_user()
+    lead = _new_lead(db, user, priority="warm")
+
+    lead_service.update_lead(db, lead, {"status": "Interested", "priority": "warm"}, user)
+    db.commit()
+
+    db.refresh(lead)
+    assert (lead.status.name, lead.priority) == ("Interested", "warm")

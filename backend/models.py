@@ -103,6 +103,8 @@ class Lead(Base):
     next_follow_up = Column(Date, index=True)
 
     created_by = Column(Integer, ForeignKey("users.id"))
+    import_id = Column(Integer, ForeignKey("imports.id", ondelete="SET NULL"),
+                       nullable=True, index=True)  # the import that added it, if any
     created_at = Column(DateTime, nullable=False, default=utc_now, index=True)  # "Added to CRM"
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
@@ -157,6 +159,7 @@ class Import(Base):
     __tablename__ = "imports"
 
     id = Column(Integer, primary_key=True)
+    uuid = Column(String(36), unique=True, nullable=False, default=new_uuid)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     file_name = Column(String(255), nullable=False)
     source = Column(Enum(*SOURCES, name="import_source"), nullable=False)

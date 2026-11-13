@@ -8,12 +8,13 @@
 //             note is kept with its author and time, newest at the top.
 //             Nobody can edit or delete a note; they go only when the lead
 //             is deleted. Whoever owns the lead next reads the whole story.
-//   Delete    asks first.
+//   Delete    admin only (members close a lead with a status instead); asks first.
 // Every save is a PATCH (or a POST); the server writes the history.
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import api from '../api';
+import Button from '../components/Button';
 import {
   DO_NOT_CALL, PRIORITIES, SOURCES, errorMessage, externalUrl, formatDateTime, fullName,
   whatsappUrl,
@@ -64,6 +65,8 @@ function OpenLink({ url, label }) {
 }
 
 export default function LeadDetail() {
+  const { me } = useOutletContext();
+  const isAdmin = me?.role === 'admin';
   const { uuid } = useParams();
   const navigate = useNavigate();
   const threadRef = useRef(null);
@@ -240,13 +243,13 @@ export default function LeadDetail() {
             </label>
           </div>
           <div className="actions">
-            <button type="submit" className="inline" disabled={busy || !formDirty}>
+            <Button type="submit" icon="save" disabled={busy || !formDirty}>
               Save changes
-            </button>
+            </Button>
             {formDirty && (
-              <button type="button" className="secondary" onClick={() => setForm(formFrom(lead))}>
+              <Button variant="outline" icon="undo" onClick={() => setForm(formFrom(lead))}>
                 Undo
-              </button>
+              </Button>
             )}
           </div>
         </form>
@@ -281,10 +284,10 @@ export default function LeadDetail() {
           <div className="card">
             <h2>Calls</h2>
             <div className="call-row">
-              <button type="button" className="inline" disabled={busy}
+              <Button variant="call" size="lg" icon="phone" disabled={busy}
                 onClick={() => save(() => api.post(`/leads/${uuid}/call`))}>
                 +1 Call
-              </button>
+              </Button>
               <div>
                 <div className="stat-value">{lead.call_attempts}</div>
                 <div className="stat-label">{lead.call_attempts === 1 ? 'call' : 'calls'}</div>
@@ -299,10 +302,10 @@ export default function LeadDetail() {
                 <input type="date" value={lead.next_follow_up ?? ''} disabled={busy}
                   onChange={(e) => patch({ next_follow_up: e.target.value || null })} />
                 {lead.next_follow_up && (
-                  <button type="button" className="secondary" disabled={busy}
+                  <Button variant="outline" icon="x" disabled={busy}
                     onClick={() => patch({ next_follow_up: null })}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </span>
             </label>
@@ -316,9 +319,9 @@ export default function LeadDetail() {
             <form onSubmit={handleAddNote}>
               <textarea rows={3} value={draft} placeholder="Write a note… (Cmd/Ctrl + Enter to save)"
                 onChange={(e) => setDraft(e.target.value)} onKeyDown={handleNoteKey} />
-              <button type="submit" className="inline" disabled={posting || !draft.trim()}>
+              <Button type="submit" icon="send" loading={posting} disabled={!draft.trim()}>
                 {posting ? 'Saving…' : 'Save note'}
-              </button>
+              </Button>
             </form>
             <div className="thread" ref={threadRef}>
               {notes.length === 0 && (
@@ -343,9 +346,15 @@ export default function LeadDetail() {
               {lead.created_by && ` by ${lead.created_by}`}
             </p>
             <p className="muted">Last updated {formatDateTime(lead.updated_at)}</p>
-            <button type="button" className="danger inline" disabled={busy} onClick={handleDelete}>
-              Delete lead
-            </button>
+            {isAdmin ? (
+              <Button variant="danger-outline" icon="trash" disabled={busy} onClick={handleDelete}>
+                Delete lead
+              </Button>
+            ) : (
+              <p className="muted small">
+                Not needed any more? Set the status to Lost or Not interested. Only the admin can delete.
+              </p>
+            )}
           </div>
         </div>
       </div>

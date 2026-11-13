@@ -11,6 +11,18 @@ export function formatDateTime(value) {
   });
 }
 
+// Short form for tables: "13 Nov, 15:02" ("13 Nov 2025, 15:02" for another year).
+export function formatShortDateTime(value, now = new Date()) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d)) return value;
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleString(undefined, {
+    day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }),
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 // A plain "YYYY-MM-DD" date (e.g. a follow-up) -> "12 Nov 2026".
 // Parsed as a local date, so it never shifts by a day.
 export function formatDate(value) {

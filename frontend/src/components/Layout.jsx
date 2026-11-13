@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import api, { TOKEN_KEY } from '../api';
+import Button from './Button';
 
 export default function Layout() {
   const [me, setMe] = useState(null);
@@ -38,7 +39,7 @@ export default function Layout() {
         </div>
         <div className="topbar-right">
           {me && <span className="me">{me.name}</span>}
-          <button className="secondary" onClick={handleLogout}>Log out</button>
+          <Button variant="outline" size="sm" icon="logOut" onClick={handleLogout}>Log out</Button>
         </div>
       </header>
       <Outlet context={{ me }} />

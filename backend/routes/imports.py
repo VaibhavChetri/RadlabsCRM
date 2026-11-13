@@ -12,7 +12,8 @@ GET  /imports/presets   saved column mappings, built-in first
 POST /imports/presets   { name, mapping } save (same name = replace; built-in ones are locked)
 POST /imports           multipart: file, mapping (JSON: file header -> CRM field),
                         source, assign_to (user uuid | split | unassigned)
-                        -> report { added, updated, skipped, headers, rows }
+                        -> report { import_uuid, added, updated, skipped, headers, rows }
+                        (GET /leads?import=<import_uuid> lists the leads it added)
                         All or nothing: a row the database refuses rolls it all back.
 """
 
@@ -100,7 +101,7 @@ async def run_import(
         raise _unprocessable(str(err))
     db.commit()
     return ImportReport(
-        added=record.added, updated=record.updated, skipped=record.skipped,
+        import_uuid=record.uuid, added=record.added, updated=record.updated, skipped=record.skipped,
         headers=data.headers, rows=[vars(r) for r in plan.results],
     )
 

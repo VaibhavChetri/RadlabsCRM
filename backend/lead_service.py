@@ -56,8 +56,38 @@ def log_call(db: Session, lead: Lead, user: User) -> Lead:
     return lead
 
 
+# Priority follows the stage a lead moves to. New and Attempted leave it alone
+# (nobody has talked to the lead yet), and so does moving to the same stage.
+PRIORITY_FOR_STATUS = {
+    # Interest shown: call these first.
+    "Interested": "hot",
+    "Meeting booked": "hot",
+    "Proposal sent": "hot",
+    # Closed: off the call list, nothing left to chase.
+    "Won": "cold",
+    "Lost": "cold",
+    "Not interested": "cold",
+    "Do not call": "cold",
+}
+# Raised to at least this, never lowered: a real conversation lifts a Cold
+# lead, but must not undo a Hot set by hand.
+MIN_PRIORITY_FOR_STATUS = {"Connected": "warm"}
+_RANK = {"cold": 0, "warm": 1, "hot": 2}
+
+
+def priority_after(status_name: str, current: str) -> str:
+    """The priority a lead gets when it moves to `status_name`."""
+    if status_name in PRIORITY_FOR_STATUS:
+        return PRIORITY_FOR_STATUS[status_name]
+    floor = MIN_PRIORITY_FOR_STATUS.get(status_name)
+    if floor and _RANK[current] < _RANK[floor]:
+        return floor
+    return current
+
+
 def change_status(db: Session, lead: Lead, status_name: str, user: User) -> Lead:
-    """Move the lead to another stage and log from -> to. Same stage = no-op."""
+    """Move the lead to another stage and log from -> to. Same stage = no-op.
+    The priority follows the new stage (see PRIORITY_FOR_STATUS)."""
     new_status = db.query(Status).filter(Status.name == status_name).first()
     if new_status is None:
         raise LeadError(f"Unknown status: {status_name}")
@@ -73,6 +103,7 @@ def change_status(db: Session, lead: Lead, status_name: str, user: User) -> Lead
     ))
     lead.status_id = new_status.id
     lead.status = new_status
+    lead.priority = priority_after(new_status.name, lead.priority)
     db.flush()
     return lead
 
@@ -87,7 +118,8 @@ NOT_NULL_FIELDS = ("source", "priority")
 
 
 def update_lead(db: Session, lead: Lead, changes: dict, user: User) -> Lead:
-    """Apply a PATCH. Status goes through change_status so history is written."""
+    """Apply a PATCH. Status goes through change_status so history is written
+    (and the priority follows the stage, unless a priority is sent too)."""
     for field in PLAIN_FIELDS:
         if field not in changes:
             continue
@@ -98,6 +130,8 @@ def update_lead(db: Session, lead: Lead, changes: dict, user: User) -> Lead:
 
     if "status" in changes:
         change_status(db, lead, changes["status"], user)
+        if changes.get("priority"):
+            lead.priority = changes["priority"]  # chosen by hand: beats the automatic one
     if "owner_uuid" in changes:
         change_owner(db, lead, changes["owner_uuid"])
     db.flush()

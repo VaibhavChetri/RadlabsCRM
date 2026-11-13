@@ -266,9 +266,12 @@ class ImportRowOut(BaseModel):
     result: Literal["added", "updated", "skipped"]
     reason: str = ""
     values: list[str] = []  # the row as it is in the file
+    name: str = ""          # the person's name as mapped
+    filled: list[str] = []  # updated rows: the CRM fields that were empty and got filled
 
 
 class ImportReport(BaseModel):
+    import_uuid: str = ""  # use with GET /leads?import= to list the leads it added
     added: int
     updated: int
     skipped: int

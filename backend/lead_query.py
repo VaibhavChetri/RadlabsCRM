@@ -17,7 +17,7 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from lead_service import NEW_STATUS
-from models import Lead, LeadNote, Status, User
+from models import Import, Lead, LeadNote, Status, User
 
 UNASSIGNED = "unassigned"
 
@@ -63,6 +63,7 @@ class LeadFilters:
     added_from: date | None = None  # the user's local dates, both ends included
     added_to: date | None = None
     tz_offset: int = 0              # user's local time minus UTC, in minutes (IST = 330)
+    import_uuid: str | None = None  # only the leads this import added
 
     def local_day_start_utc(self, day: date) -> datetime:
         """Midnight of `day` in the user's time zone, as naive UTC (what we store)."""
@@ -105,6 +106,9 @@ def _filtered(db: Session, filters: LeadFilters):
         query = query.join(Lead.status).filter(Status.name.in_(filters.statuses))
     if filters.sources:
         query = query.filter(Lead.source.in_(filters.sources))
+    if filters.import_uuid:
+        query = query.filter(Lead.import_id.in_(
+            select(Import.id).where(Import.uuid == filters.import_uuid)))
     if filters.priorities:
         query = query.filter(Lead.priority.in_(filters.priorities))
     if filters.owners:
