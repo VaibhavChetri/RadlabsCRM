@@ -119,6 +119,21 @@ def change_owner(db: Session, lead: Lead, owner_uuid: str | None) -> Lead:
     return lead
 
 
+def reassign_leads(db: Session, from_user: User, to_uuid: str | None) -> int:
+    """Hand every lead `from_user` owns to another active user (None = Unassigned).
+    Lead by lead through change_owner, so the same rules apply. Returns the count."""
+    if to_uuid == from_user.uuid:
+        raise LeadError("Choose a different person")
+    leads = db.query(Lead).filter(Lead.owner_id == from_user.id).all()
+    for lead in leads:
+        change_owner(db, lead, to_uuid)
+    if not leads and to_uuid is not None:
+        # Still refuse an invalid target, even when there is nothing to move.
+        if not db.query(User).filter(User.uuid == to_uuid, User.is_active.is_(True)).first():
+            raise LeadError("Owner must be an active team member")
+    return len(leads)
+
+
 def _check_name_and_contact(lead: Lead) -> None:
     if not (lead.first_name or lead.last_name):
         raise LeadError("A lead needs a first or last name")

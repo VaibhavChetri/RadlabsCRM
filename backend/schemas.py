@@ -11,7 +11,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, PlainSerializer, field_validator, model_validator
 
 from import_engine import FIELDS as IMPORT_FIELDS
-from models import PRIORITIES, SOURCES, Lead
+from models import PRIORITIES, ROLES, SOURCES, Lead
 
 
 # ---------- Auth ----------
@@ -192,6 +192,57 @@ class TodayList(BaseModel):
     overdue: list[LeadOut]    # follow-up date before today
     due_today: list[LeadOut]  # follow-up date is today
     new: list[LeadOut]        # status New, no follow-up due yet
+
+
+# ---------- Team admin (/users) ----------
+Role = Literal[ROLES]
+Password = Annotated[str, Field(min_length=8, max_length=128)]
+
+
+class UserCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    password: Password  # temporary password the admin hands over
+    role: Role = "member"
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _trim(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class TeamUserOut(BaseModel):
+    uuid: str
+    name: str
+    email: EmailStr
+    role: str
+    is_active: bool
+    created_at: UTCDateTime
+    leads: int = 0  # leads they own now
+
+
+class UserUpdate(BaseModel):
+    """PATCH body: only the fields that are sent are changed."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    role: Optional[Role] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _trim(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class PasswordReset(BaseModel):
+    password: Password
+
+
+class ReassignRequest(BaseModel):
+    to_uuid: Optional[str]  # an active user, or null = Unassigned
+
+
+class ReassignResult(BaseModel):
+    count: int  # leads moved
 
 
 # ---------- Notes thread ----------

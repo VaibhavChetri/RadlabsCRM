@@ -1,6 +1,7 @@
 // Layout.jsx
 // ----------
 // Top bar for every logged-in screen: app name, nav, who is logged in, log out.
+// The Team (admin) link shows only for admins.
 // Loads the current user from GET /auth/me and passes it to pages via
 // the router outlet context.
 
@@ -32,6 +33,7 @@ export default function Layout() {
             <NavLink to="/leads">All leads</NavLink>
             <NavLink to="/import">Import</NavLink>
             <NavLink to="/stats">Team stats</NavLink>
+            {me?.role === 'admin' && <NavLink to="/team">Team</NavLink>}
           </nav>
         </div>
         <div className="topbar-right">

@@ -422,3 +422,11 @@ a.button-link.secondary:hover { background: #f3f4f6; }
 .preset-save { margin: 16px 0 10px; }
 .preset-save input { margin-top: 0; }
 .preset-save button { margin-top: 0; }
+
+/* ----- Team admin ----- */
+.team-admin-table select.compact { margin-top: 0; padding: 6px 8px; font-size: 13px; width: auto; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 14px; }
+.panel-row td { background: #f8fafc; }
+.panel-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.panel-form label { margin-bottom: 0; min-width: 260px; flex: 1; }
+.panel-form button { margin-bottom: 1px; }

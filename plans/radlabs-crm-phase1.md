@@ -25,7 +25,7 @@ Durable decisions that apply across all phases:
 - **Source list** (fixed in code): Apollo, LinkedIn, Referral, Event, Cold list, Other.
 - **Routes**:
   - `POST /auth/login`, `GET /auth/me`
-  - `GET/POST /users`, `PATCH /users/{uuid}`, `POST /users/{uuid}/reset-password` (admin)
+  - `GET/POST /users`, `PATCH /users/{uuid}`, `POST /users/{uuid}/reset-password`, `POST /users/{uuid}/reassign-leads` (admin)
   - `GET /statuses`, `GET /owners` (active users for Owner dropdowns; any logged-in user)
   - `GET/POST /leads`, `GET/PATCH/DELETE /leads/{uuid}`, `POST /leads/{uuid}/call`, `GET/POST /leads/{uuid}/notes`, `POST /leads/bulk`, `GET /leads/today`, `GET /leads/export`
   - `POST /imports/preview`, `POST /imports`, `GET /imports`, `GET/POST /imports/presets`
@@ -168,9 +168,9 @@ A Team page for the admin only: list users; add a user (name, email, temporary p
 
 ### Acceptance criteria
 
-- [ ] Admin can add a user who can then log in and see all leads.
-- [ ] A member gets 403 on every `/users` route, and the Team link is hidden for them.
-- [ ] A deactivated user is refused at login, and their old token gets 401.
-- [ ] Reassign moves all their leads and keeps their past stats.
-- [ ] Password reset works; the old password stops working.
-- [ ] API tests for permissions, deactivation and reset.
+- [x] Admin can add a user who can then log in and see all leads.
+- [x] A member gets 403 on every `/users` route, and the Team link is hidden for them.
+- [x] A deactivated user is refused at login, and their old token gets 401.
+- [x] Reassign moves all their leads and keeps their past stats.
+- [x] Password reset works; the old password stops working.
+- [x] API tests for permissions, deactivation and reset.

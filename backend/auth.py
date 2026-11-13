@@ -59,3 +59,11 @@ def get_current_user(
     if user is None or not user.is_active:
         raise credentials_error
     return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Dependency for the Team admin routes. 403 for members.
+    The role is read from the database, so a role change works at once."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+    return user
