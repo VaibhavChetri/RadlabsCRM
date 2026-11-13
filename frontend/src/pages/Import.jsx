@@ -6,9 +6,9 @@
 //                 The mapping is suggested from the headers; a saved preset (e.g. the
 //                 built-in Apollo one) maps a known file with no changes. The first
 //                 5 rows are shown as they will look in the CRM.
-//   3. Results    a one-line outcome, then rows grouped by what the user must do:
-//                 needs attention (with how to fix) / added / updated (fields filled) /
-//                 no action needed. "Download rows to fix" gives just the fixable rows.
+//   3. Results    the outcome and "View new leads" (only the leads this import added),
+//                 rows to fix (with a download of just those rows), then folded lists:
+//                 added / updated (fields filled) / skipped.
 // People already in the CRM (same email, phone or LinkedIn) are never added twice:
 // only their empty fields are filled. Status, owner, notes and calls never change.
 // Below the wizard: the import history (who, when, file, source, counts).
@@ -304,56 +304,52 @@ function MapColumns({ file, preview, me, onDone, onCancel }) {
 }
 
 // ---------- Step 3: results ----------
-// What each skip reason means for the user, and whether they need to act.
+// Short reason for a skipped row. needsFix: the user must change the row to import it.
 function explain(row) {
-  if (row.reason === 'no contact info') {
-    return { needsAction: true, problem: 'No email, phone or LinkedIn URL', fix: 'Add at least one of them, then import the row again.' };
-  }
-  if (row.reason === 'no name') {
-    return { needsAction: true, problem: 'No name', fix: 'Add a first or last name, then import the row again.' };
-  }
+  if (row.reason === 'no contact info') return { needsFix: true, problem: 'No email, phone or LinkedIn' };
+  if (row.reason === 'no name') return { needsFix: true, problem: 'No name' };
   const dup = /^duplicate of row (\d+)/.exec(row.reason);
-  if (dup) return { needsAction: false, problem: `Same person as row ${dup[1]} of your file. Merged into one lead.` };
-  if (row.reason === 'already in CRM, nothing new') {
-    return { needsAction: false, problem: 'Already in your CRM. The file had nothing new for them.' };
-  }
-  return { needsAction: row.result === 'skipped', problem: row.reason };
+  if (dup) return { needsFix: false, problem: `Same person as row ${dup[1]}` };
+  if (row.reason === 'already in CRM, nothing new') return { needsFix: false, problem: 'Already in the CRM, nothing new' };
+  return { needsFix: row.result === 'skipped', problem: row.reason };
 }
 
-// "Contact Name: Sunil M · Mobile No: 098111 22233" (the file's own column names).
-// A re-uploaded "rows to fix" file starts with Row / Result / Reason: not shown.
+// The row's other values, e.g. "sneha@brightpath.in · 98200 11223" (name left out:
+// it has its own column). A re-uploaded "rows to fix" file starts with Row / Result /
+// Reason: not shown.
 const REPORT_COLUMNS = ['Row', 'Result', 'Reason'];
-function rowDetails(headers, values, limit = 4) {
-  const fromReport = REPORT_COLUMNS.every((c, i) => headers[i] === c);
-  return headers.map((h, i) => [h, values[i]])
-    .filter(([, v], i) => v && !(fromReport && i < REPORT_COLUMNS.length)).slice(0, limit)
-    .map(([h, v]) => `${h}: ${v}`).join(' · ');
+function rowDetails(headers, values, name, limit = 3) {
+  const skip = REPORT_COLUMNS.every((c, i) => headers[i] === c) ? REPORT_COLUMNS.length : 0;
+  const nameParts = new Set(name.toLowerCase().split(' ').concat(name.toLowerCase()));
+  return values.slice(skip).filter((v) => v && !nameParts.has(v.trim().toLowerCase()))
+    .slice(0, limit).join(' · ');
 }
 
-function ResultGroup({ tone, title, count, hint, children, collapsed = false }) {
-  if (!count) return null;
-  const more = count > REPORT_ROWS_SHOWN && (
-    <p className="muted small">Showing {REPORT_ROWS_SHOWN} of {count}. Download the full report for all rows.</p>
+// One line per file row: row number, name, what happened.
+function ResultRows({ rows, detail }) {
+  return (
+    <ul className="result-rows">
+      {rows.slice(0, REPORT_ROWS_SHOWN).map((r) => (
+        <li key={r.row}>
+          <span className="result-rownum">Row {r.row}</span>
+          <span className="result-name">{r.name || <span className="muted" aria-label="No name">—</span>}</span>
+          <span className="result-detail">{detail(r)}</span>
+        </li>
+      ))}
+      {rows.length > REPORT_ROWS_SHOWN && (
+        <li className="result-more">{rows.length - REPORT_ROWS_SHOWN} more in the full report</li>
+      )}
+    </ul>
   );
-  const head = (
-    <span className="result-group-head">
-      <span className={`dot dot-${tone}`} aria-hidden="true" />
-      <strong>{title}</strong> <span className="muted">({count})</span>
-      {hint && <span className="muted small"> · {hint}</span>}
-    </span>
-  );
-  return collapsed ? (
-    <details className="result-group">
-      <summary>{head}</summary>
-      <ul className="result-list">{children}</ul>
-      {more}
+}
+
+function Outcome({ label, rows, detail }) {
+  if (!rows.length) return null;
+  return (
+    <details className="result-outcome">
+      <summary>{label} <span className="result-count">{rows.length}</span></summary>
+      <ResultRows rows={rows} detail={detail} />
     </details>
-  ) : (
-    <section className="result-group">
-      <h3>{head}</h3>
-      <ul className="result-list">{children}</ul>
-      {more}
-    </section>
   );
 }
 
@@ -362,23 +358,21 @@ function Results({ report, context, onAgain }) {
   const rows = report.rows.map((r) => ({ ...r, ...explain(r) }));
   const added = rows.filter((r) => r.result === 'added');
   const updated = rows.filter((r) => r.result === 'updated');
-  const attention = rows.filter((r) => r.result === 'skipped' && r.needsAction);
-  const noAction = rows.filter((r) => r.result === 'skipped' && !r.needsAction);
-  const who = (r) => r.name || <span className="muted">(no name)</span>;
+  const toFix = rows.filter((r) => r.result === 'skipped' && r.needsFix);
+  const skipped = rows.filter((r) => r.result === 'skipped' && !r.needsFix);
 
-  const headline = added.length
-    ? `${plural(added.length, 'new lead')} added`
-    : updated.length ? 'No new leads, existing leads updated' : 'No new leads added';
-  const sub = [
-    updated.length && `${plural(updated.length, 'existing lead')} updated`,
-    attention.length && `${plural(attention.length, 'row')} ${attention.length === 1 ? 'needs' : 'need'} your attention`,
-    noAction.length && `${plural(noAction.length, 'row')} skipped (no action needed)`,
-  ].filter(Boolean).join(' · ');
+  const headline = added.length ? `${plural(added.length, 'new lead')} added`
+    : updated.length ? `${plural(updated.length, 'lead')} updated, no new leads`
+      : 'No leads added';
+  const facts = [context.fileName, `Source: ${context.source}`,
+    added.length > 0 && `Owner: ${context.ownerLabel}`].filter(Boolean).join(' · ');
+
+  const newLeadsUrl = `/leads?import=${report.import_uuid}`; // only the leads this import added
 
   const download = async (onlyToFix) => {
     setError('');
     try {
-      const body = onlyToFix ? { ...report, rows: report.rows.filter((r) => attention.some((a) => a.row === r.row)) } : report;
+      const body = onlyToFix ? { ...report, rows: report.rows.filter((r) => toFix.some((f) => f.row === r.row)) } : report;
       const res = await api.post('/imports/report', body, { responseType: 'blob' });
       saveDownload(res, 'import-report.xlsx', onlyToFix ? 'rows-to-fix.xlsx' : undefined);
     } catch {
@@ -388,76 +382,55 @@ function Results({ report, context, onAgain }) {
 
   return (
     <div className="card">
-      <div className={`result-banner ${attention.length ? 'tone-warn' : 'tone-ok'}`} role="status">
-        <span className="result-icon" aria-hidden="true"><Icon name={attention.length ? 'alert' : 'check'} /></span>
+      <div className="result-head" role="status">
         <div>
           <h2>{headline}</h2>
-          <p>{sub || 'Every row in the file was added.'}</p>
+          <p className="muted">{facts}</p>
+        </div>
+        <div className="actions">
           {added.length > 0 && (
-            <p className="muted small">
-              From <strong>{context.fileName}</strong> · Source: {context.source} · Owner: {context.ownerLabel}
-            </p>
+            <Link className={buttonClass()} to={newLeadsUrl}>
+              View {added.length === 1 ? 'new lead' : `${added.length} new leads`}<Icon name="chevronRight" />
+            </Link>
           )}
+          <Button variant="outline" icon="fileUp" onClick={onAgain}>Import another file</Button>
         </div>
       </div>
 
-      <ResultGroup tone="warn" title="Needs your attention" count={attention.length}
-        hint="these rows were not added">
-        {attention.slice(0, REPORT_ROWS_SHOWN).map((r) => (
-          <li key={r.row}>
-            <div className="result-line"><strong>{who(r)}</strong><span className="muted small">Row {r.row} of your file</span></div>
-            <div className="result-problem">{r.problem}. <span className="muted">{r.fix}</span></div>
-            <div className="muted small">{rowDetails(report.headers, r.values)}</div>
-          </li>
-        ))}
-      </ResultGroup>
+      {toFix.length > 0 && (
+        <section className="result-fix" aria-labelledby="result-fix-title">
+          <div className="result-fix-head">
+            <h3 id="result-fix-title"><Icon name="alert" />{plural(toFix.length, 'row')} not added</h3>
+            <Button size="sm" variant={added.length ? 'outline' : 'primary'} icon="download"
+              onClick={() => download(true)}>
+              Download to fix
+            </Button>
+          </div>
+          <ResultRows rows={toFix} detail={(r) => r.problem} />
+        </section>
+      )}
 
-      <ResultGroup tone="ok" title="Added as new leads" count={added.length}>
-        {added.slice(0, REPORT_ROWS_SHOWN).map((r) => (
-          <li key={r.row}>
-            <div className="result-line"><strong>{who(r)}</strong><span className="muted small">Row {r.row}</span></div>
-            <div className="muted small">{rowDetails(report.headers, r.values)}</div>
-          </li>
-        ))}
-      </ResultGroup>
-
-      <ResultGroup tone="info" title="Existing leads updated" count={updated.length}
-        hint="only empty fields were filled; status, owner, notes and calls did not change">
-        {updated.slice(0, REPORT_ROWS_SHOWN).map((r) => (
-          <li key={r.row}>
-            <div className="result-line"><strong>{who(r)}</strong><span className="muted small">Row {r.row}</span></div>
-            <div className="small">Filled in: {r.filled.map((f) => IMPORT_FIELD_LABELS[f] || f).join(', ') || '—'}</div>
-          </li>
-        ))}
-      </ResultGroup>
-
-      <ResultGroup tone="muted" title="Skipped, no action needed" count={noAction.length} collapsed
-        hint="click to see">
-        {noAction.slice(0, REPORT_ROWS_SHOWN).map((r) => (
-          <li key={r.row}>
-            <div className="result-line"><strong>{who(r)}</strong><span className="muted small">Row {r.row}</span></div>
-            <div className="muted small">{r.problem}</div>
-          </li>
-        ))}
-      </ResultGroup>
+      <div className="result-outcomes">
+        <Outcome label="Added" rows={added} detail={(r) => rowDetails(report.headers, r.values, r.name)} />
+        <Outcome label="Updated" rows={updated}
+          detail={(r) => `Filled in: ${r.filled.map((f) => IMPORT_FIELD_LABELS[f] || f).join(', ') || '—'}`} />
+        <Outcome label="Skipped" rows={skipped} detail={(r) => r.problem} />
+      </div>
 
       {error && <div className="error">{error}</div>}
-      <div className="result-actions">
-        {attention.length > 0 && (
-          <div className="result-fix">
-            <Button icon="download" onClick={() => download(true)}>
-              Download {plural(attention.length, 'row')} to fix
-            </Button>
-            <span className="muted small">Fix them in Excel and import the file again. The columns match your file.</span>
-          </div>
-        )}
-        <div className="actions">
-          <Button variant={attention.length ? 'outline' : 'primary'} icon="fileUp" onClick={onAgain}>Import another file</Button>
-          <Link className={buttonClass({ variant: 'outline' })} to="/leads?sort=added">
-            See newest leads
+      <div className="result-foot">
+        <Button variant="link" icon="download" onClick={() => download(false)}>
+          Download full report
+        </Button>
+        {added.length > 0 ? (
+          <Link className={buttonClass({ variant: 'outline' })} to={newLeadsUrl}>
+            View {added.length === 1 ? 'new lead' : `${added.length} new leads`}<Icon name="chevronRight" />
           </Link>
-          <Button variant="link" onClick={() => download(false)}>Download full report (.xlsx)</Button>
-        </div>
+        ) : (
+          <Link className={buttonClass({ variant: 'outline' })} to="/leads">
+            Go to All leads<Icon name="chevronRight" />
+          </Link>
+        )}
       </div>
     </div>
   );

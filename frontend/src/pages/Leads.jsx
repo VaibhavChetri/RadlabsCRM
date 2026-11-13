@@ -25,7 +25,7 @@ import {
 } from '../format';
 
 const PAGE_SIZE = 50;
-const FILTER_KEYS = ['q', 'status', 'owner', 'source', 'priority', 'added_from', 'added_to'];
+const FILTER_KEYS = ['q', 'status', 'owner', 'source', 'priority', 'added_from', 'added_to', 'import'];
 const UNASSIGNED = 'unassigned'; // the API's owner filter value for "nobody"
 const DEFAULT_ORDER = { added: 'desc', last_called: 'desc' }; // others: asc
 const NO_SELECTION = new Set();
@@ -129,6 +129,7 @@ export default function Leads() {
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
   const hasFilters = FILTER_KEYS.some((key) => searchParams.get(key));
+  const fromImport = Boolean(searchParams.get('import')); // opened from the import results
 
   const handleSort = (key) => {
     const nextOrder = key === sort
@@ -213,7 +214,11 @@ export default function Leads() {
           <h1>All leads</h1>
           <p className="subtitle">
             {data.total} {data.total === 1 ? 'lead' : 'leads'}
-            {hasFilters ? (data.total === 1 ? ' matches' : ' match') : ' in the CRM'}
+            {fromImport ? ' added by your import'
+              : hasFilters ? (data.total === 1 ? ' matches' : ' match') : ' in the CRM'}
+            {fromImport && (
+              <> · <Button variant="link" onClick={() => updateParams({ import: '' })}>Show all leads</Button></>
+            )}
           </p>
         </div>
         <div className="actions">
