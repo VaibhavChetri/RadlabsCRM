@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 
 # Python
 venv/
@@ -18,3 +19,6 @@ dist/
 
 # Migration backups (contain personal data)
 backups/
+
+# Playwright MCP output
+.playwright-mcp/

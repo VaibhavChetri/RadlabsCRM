@@ -6,20 +6,24 @@
 //   - add a person: name, email, temporary password, role
 //   - change role, deactivate / reactivate
 //   - reset a password (the old one stops working)
-//   - "Reassign all their leads to…" another active person, or Unassigned
+//   - "Reassign leads": tick some (or all) of a person's leads and move them to
+//     another active person, or Unassigned
 // A deactivated person cannot log in and their open session stops working.
 // Their leads stay, and their past stats stay on the Team stats page.
 // Data: GET/POST /users, PATCH /users/:uuid, POST /users/:uuid/reset-password,
-//       POST /users/:uuid/reassign-leads
+//       POST /users/:uuid/reassign-leads (all), POST /leads/bulk (the ticked ones),
+//       GET /leads?owner= (the person's leads, for the picker)
 
 import { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import api from '../api';
 import Button from '../components/Button';
-import { errorMessage, formatDate, localDateISO } from '../format';
+import { DO_NOT_CALL, errorMessage, formatDate, fullName, localDateISO } from '../format';
 
 const EMPTY_USER = { name: '', email: '', password: '', role: 'member' };
 const UNASSIGNED = '';
+const PICKER_PAGE = 200; // the API's max page size
+const SEARCH_DELAY_MS = 300;
 
 export default function Team() {
   const { me } = useOutletContext();
@@ -132,10 +136,16 @@ export default function Team() {
                         await api.post(`/users/${user.uuid}/reset-password`, { password });
                         await done(`Password reset for ${user.name}. Their old password no longer works.`);
                       }, 'Could not reset the password.')}
-                      onReassign={(toUuid, toName) => run(async () => {
-                        const res = await api.post(`/users/${user.uuid}/reassign-leads`,
-                          { to_uuid: toUuid || null });
-                        await done(`${res.data.count} lead(s) moved from ${user.name} to ${toName}.`);
+                      onReassign={(uuids, toUuid, toName) => run(async () => {
+                        // Every lead ticked: one call that moves all of them, even ones
+                        // not loaded in the picker. Otherwise only the ticked leads.
+                        const count = uuids.length === user.leads
+                          ? (await api.post(`/users/${user.uuid}/reassign-leads`,
+                            { to_uuid: toUuid || null })).data.count
+                          : (await api.post('/leads/bulk', {
+                            uuids, action: 'update', changes: { owner_uuid: toUuid || null },
+                          })).data.count;
+                        await done(`${count} ${count === 1 ? 'lead' : 'leads'} moved from ${user.name} to ${toName}.`);
                       }, 'Could not reassign the leads.')}
                     />
                   );
@@ -297,27 +307,108 @@ function ResetPasswordForm({ name, onSubmit }) {
   );
 }
 
+// Pick which of the person's leads to move, and to whom. Nothing is ticked at
+// first, so a click never moves more than the admin chose.
 function ReassignForm({ user, targets, onSubmit }) {
   const [toUuid, setToUuid] = useState(targets[0]?.uuid ?? UNASSIGNED);
+  const [q, setQ] = useState('');
+  const [list, setList] = useState(null); // { items, total }
+  const [loadError, setLoadError] = useState('');
+  const [picked, setPicked] = useState(() => new Set());
+  const [saving, setSaving] = useState(false);
   const toName = targets.find((t) => t.uuid === toUuid)?.name ?? 'Unassigned';
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      api.get('/leads', {
+        params: { owner: user.uuid, q: q || undefined, sort: 'added', order: 'desc', page_size: PICKER_PAGE },
+      })
+        .then((res) => { setList(res.data); setLoadError(''); })
+        .catch((err) => setLoadError(errorMessage(err, 'Could not load the leads.')));
+    }, q ? SEARCH_DELAY_MS : 0);
+    return () => clearTimeout(timer);
+  }, [user.uuid, q]);
+
+  const shown = list?.items ?? [];
+  const allShownPicked = shown.length > 0 && shown.every((l) => picked.has(l.uuid));
+  const someShownPicked = !allShownPicked && shown.some((l) => picked.has(l.uuid));
+  const toggle = (uuid) => setPicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(uuid)) next.delete(uuid); else next.add(uuid);
+    return next;
+  });
+  const toggleShown = () => setPicked((prev) => {
+    const next = new Set(prev);
+    shown.forEach((l) => (allShownPicked ? next.delete(l.uuid) : next.add(l.uuid)));
+    return next;
+  });
+
+  const count = picked.size;
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!count) return;
+    if (count === user.leads
+      && !window.confirm(`Move all ${user.leads} leads from ${user.name} to ${toName}?`)) return;
+    setSaving(true);
+    await onSubmit([...picked], toUuid, toName);
+    setSaving(false);
+  };
+
   return (
-    <form
-      className="panel-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (window.confirm(`Move all ${user.leads} lead(s) from ${user.name} to ${toName}?`)) {
-          onSubmit(toUuid, toName);
-        }
-      }}
-    >
-      <label>
-        Reassign all {user.leads} lead(s) of {user.name} to
-        <select value={toUuid} onChange={(e) => setToUuid(e.target.value)}>
-          {targets.map((t) => <option key={t.uuid} value={t.uuid}>{t.name}</option>)}
-          <option value={UNASSIGNED}>Unassigned</option>
-        </select>
-      </label>
-      <Button type="submit" icon="swap">Reassign leads</Button>
+    <form className="reassign" onSubmit={submit} aria-label={`Move ${user.name}'s leads`}>
+      <div className="reassign-top">
+        <h3>Move {user.name}&rsquo;s leads</h3>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name or company" aria-label={`Search ${user.name}'s leads`} />
+      </div>
+
+      {loadError && <div className="error">{loadError}</div>}
+      {!list && !loadError && <p className="reassign-empty">Loading leads…</p>}
+      {list && (
+        <div className="reassign-list" role="group" aria-label="Leads">
+          <label className="reassign-row reassign-head">
+            <input type="checkbox" checked={allShownPicked} onChange={toggleShown}
+              ref={(el) => { if (el) el.indeterminate = someShownPicked; }}
+              disabled={!shown.length} aria-label="Tick all leads shown" />
+            <span>Name</span>
+            <span>Company</span>
+            <span>Status</span>
+          </label>
+          {shown.map((lead) => (
+            <label key={lead.uuid} className={`reassign-row${picked.has(lead.uuid) ? ' is-picked' : ''}`}>
+              <input type="checkbox" checked={picked.has(lead.uuid)} onChange={() => toggle(lead.uuid)} />
+              <span className="reassign-name">{fullName(lead)}</span>
+              <span className={`reassign-company${lead.company ? '' : ' is-empty'}`}>{lead.company || '—'}</span>
+              <span><span className={lead.status === DO_NOT_CALL ? 'badge danger' : 'badge'}>{lead.status}</span></span>
+            </label>
+          ))}
+          {!shown.length && <p className="reassign-empty">No leads match &ldquo;{q}&rdquo;.</p>}
+          {list.total > shown.length && (
+            <p className="reassign-empty">Showing {shown.length} of {list.total}. Search to find the others.</p>
+          )}
+        </div>
+      )}
+
+      <div className="reassign-foot">
+        <span className="reassign-count" aria-live="polite">
+          {count ? (
+            <>
+              <strong>{count}</strong> of {user.leads} selected
+              <Button variant="link" onClick={() => setPicked(new Set())}>Clear</Button>
+            </>
+          ) : 'Tick the leads to move'}
+        </span>
+        <label className="reassign-to">
+          Move to
+          <select value={toUuid} onChange={(e) => setToUuid(e.target.value)}>
+            {targets.map((t) => <option key={t.uuid} value={t.uuid}>{t.name}</option>)}
+            <option value={UNASSIGNED}>Unassigned</option>
+          </select>
+        </label>
+        <Button type="submit" icon="swap" loading={saving} disabled={!count}>
+          {count ? `Move ${count} ${count === 1 ? 'lead' : 'leads'}` : 'Move leads'}
+        </Button>
+      </div>
     </form>
   );
 }

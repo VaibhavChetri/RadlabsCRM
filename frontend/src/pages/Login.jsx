@@ -37,6 +37,7 @@ export default function Login() {
   return (
     <div className="centered-page">
       <form className="card" onSubmit={handleLogin}>
+        <img className="login-logo" src="/logo.png" alt="" width="32" height="40" />
         <h1>Radlabs CRM</h1>
         <p className="subtitle">Sign in with your team account</p>
 
@@ -44,6 +45,7 @@ export default function Login() {
           Email
           <input
             type="email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@radlabs.tech"
@@ -55,6 +57,7 @@ export default function Login() {
           Password
           <input
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"

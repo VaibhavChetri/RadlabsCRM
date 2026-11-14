@@ -39,12 +39,6 @@ body {
   padding: 24px;
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
 
 /* ----- Card ----- */
 .card {
@@ -282,24 +276,86 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: upp
 .table-wrap { overflow-x: auto; }
 td { white-space: nowrap; }
 
-/* ----- Top bar ----- */
-.topbar-left, .topbar-right { display: flex; align-items: center; gap: 16px; }
-.brand { font-weight: 700; font-size: 18px; }
+/* ----- App bar: brand, segmented main links, who is logged in ----- */
+.appbar {
+  position: sticky; top: 0; z-index: 20;
+  background: #fff; border-bottom: 1px solid var(--border);
+}
+.appbar-inner {
+  max-width: 1360px; margin: 0 auto; padding: 10px 24px;
+  display: flex; align-items: center; gap: 12px 28px;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; font: inherit;
+}
+.brand-mark { display: block; width: 24px; height: 30px; object-fit: contain; flex: none; }
+.login-logo { display: block; width: 32px; height: 40px; margin-bottom: 12px; }
+.brand-name { font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.brand-name span { color: var(--muted); font-weight: 600; }
+.brand:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: 8px; }
+
+.nav {
+  position: relative; display: flex; gap: 2px; padding: 4px; border-radius: 10px;
+  background: #f1f4f9; border: 1px solid #e8ecf3;
+}
+/* The white pill behind the current link; it slides when the page changes. */
+.nav-pill {
+  position: absolute; top: 4px; bottom: 4px; left: 0; border-radius: 7px; background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .08), 0 0 0 1px rgba(16, 24, 40, .04);
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), width .28s cubic-bezier(.22, 1, .36, 1);
+}
+.nav button {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border: 0; border-radius: 7px; background: none; cursor: pointer;
+  color: #4b5563; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
+  transition: color .2s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav button svg { width: 16px; height: 16px; flex: none; opacity: .8; }
+.nav button:hover { color: var(--text); }
+.nav button[aria-current="page"] { color: var(--primary); }
+.nav button[aria-current="page"] svg { opacity: 1; }
+.nav button:active { transform: scale(.97); }
+.nav button:focus { outline: none; }
+.nav button:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+/* Each page fades in when you switch to it. */
+.page-in { animation: page-in .22s ease-out; }
+@keyframes page-in { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.appbar-user { display: flex; align-items: center; gap: 12px; margin-left: auto; flex: none; }
+.me { display: flex; align-items: center; gap: 10px; }
+.avatar {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: #e0e7ff; color: #3730a3; font-size: 13px; font-weight: 700; flex: none;
+}
+.me-text { display: flex; flex-direction: column; line-height: 1.2; }
+.me-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.me-role { font-size: 12px; color: var(--muted); }
+.appbar-user .btn { color: var(--muted); }
+.appbar-user .btn:hover { color: var(--text); }
+
+@media (max-width: 1100px) { .me-text { display: none; } }
+@media (max-width: 900px) {
+  .appbar-inner { flex-wrap: wrap; padding: 10px 12px 8px; }
+  .nav { order: 3; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav button { flex: 1 0 auto; justify-content: center; }
+}
+@media (max-width: 420px) { .nav button svg { display: none; } .nav button { padding: 6px 8px; } }
+@media (pointer: coarse) { .nav button { padding-top: 9px; padding-bottom: 9px; } }
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill, .nav button { transition: none; }
+  .nav button:active { transform: none; }
+  .page-in { animation: none; }
+}
+
 @media (max-width: 640px) {
   .page { padding: 14px 12px; }
   .page .card { padding: 16px 14px; }
-  .topbar { flex-wrap: wrap; gap: 8px 12px; }
-  .topbar-left { display: contents; }
-  .brand { order: 1; }
-  .topbar-right { order: 2; gap: 10px; }
-  .nav { order: 3; width: 100%; overflow-x: auto; gap: 14px; padding-bottom: 2px; }
-  .nav a { white-space: nowrap; }
-  .me { display: none; }
   .lead-head .actions { width: 100%; }
 }
-.nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; }
-.nav a.active { color: var(--primary); }
-.me { font-size: 14px; color: var(--muted); }
 
 /* ----- Page pieces ----- */
 .page .card { margin-bottom: 20px; padding: 20px 22px; }
@@ -395,7 +451,6 @@ textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 
 .note-body { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ----- Home: my call list ----- */
-.nav { display: flex; gap: 16px; }
 .small { font-size: 12px; }
 select.compact { width: auto; min-width: 140px; margin-top: 0; padding: 6px 8px; font-size: 13px; }
 
@@ -492,6 +547,57 @@ input[type="checkbox"] { display: inline-block; width: 16px; height: 16px; margi
 .panel-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .panel-form label { margin-bottom: 0; min-width: 260px; flex: 1; }
 .panel-form .btn { margin-bottom: 4px; }
+
+/* Team: pick which leads to reassign. One white box: title + search, list, action bar. */
+.reassign { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.reassign-top {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px 16px; padding: 12px 16px;
+}
+.reassign-top h3 { margin: 0; font-size: 15px; }
+.reassign-top input { width: 300px; max-width: 100%; margin: 0; padding: 7px 10px; font-size: 14px; }
+.reassign .error { margin: 0 16px 12px; }
+
+.reassign-list { max-height: 320px; overflow-y: auto; border-top: 1px solid var(--border); }
+.reassign-row {
+  display: grid; grid-template-columns: 20px minmax(0, 1.4fr) minmax(0, 1fr) minmax(120px, .6fr);
+  align-items: center; gap: 12px; margin: 0; padding: 9px 16px;
+  border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 400; cursor: pointer;
+}
+.reassign-row:last-child { border-bottom: none; }
+.reassign-row:hover { background: #f8fafc; }
+.reassign-row.is-picked { background: #eff6ff; }
+.reassign-head {
+  position: sticky; top: 0; z-index: 1; background: #f8fafc; padding-top: 7px; padding-bottom: 7px;
+  color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+}
+.reassign-name { font-weight: 500; overflow-wrap: anywhere; }
+.reassign-company { color: var(--muted); overflow-wrap: anywhere; }
+.reassign-empty { margin: 0; padding: 10px 16px; color: var(--muted); font-size: 13px; }
+
+.reassign-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 10px 16px; border-top: 1px solid var(--border); background: #f8fafc;
+}
+.reassign-count { display: flex; align-items: center; gap: 8px; margin-right: auto; font-size: 14px; color: var(--muted); }
+.reassign-count strong { color: var(--text); }
+.reassign-to { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 500; }
+.reassign-to select { width: auto; min-width: 160px; margin: 0; }
+/* Stacked team table: the picker box is its own frame, no extra grey padding around it. */
+@media (max-width: 900px) {
+  .stack-table .panel-row:has(.reassign), .stack-table .panel-row:has(.reassign) td { padding: 6px 0; background: none; }
+}
+@media (max-width: 640px) {
+  .reassign-row { grid-template-columns: 20px minmax(0, 1fr) auto; row-gap: 2px; }
+  .reassign-company.is-empty { display: none; }
+  .reassign-company { grid-column: 2; grid-row: 2; font-size: 13px; }
+  .reassign-head span:nth-of-type(2) { display: none; }
+  .reassign-top input { width: 100%; }
+  .reassign-count { width: 100%; }
+  .reassign-to { flex: 1; }
+  .reassign-to select { flex: 1; min-width: 0; }
+}
+@media (pointer: coarse) { .reassign-row { padding-top: 12px; padding-bottom: 12px; } }
 
 /* ----- Responsive tables -----
    All leads: compact, so every column fits on a 1280px+ screen.
